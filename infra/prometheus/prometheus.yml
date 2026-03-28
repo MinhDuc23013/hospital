@@ -1,0 +1,45 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'hospital-hrm'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'gateway'
+    static_configs:
+      - targets: ['hospital-gateway:8000']
+    metrics_path: '/metrics'
+
+  - job_name: 'patient-service'
+    static_configs:
+      - targets: ['patient-service:5001']
+    metrics_path: '/metrics'
+
+  - job_name: 'appointment-service'
+    static_configs:
+      - targets: ['appointment-service:5002']
+    metrics_path: '/metrics'
+
+  - job_name: 'medical-record-service'
+    static_configs:
+      - targets: ['medical-record-service:5003']
+    metrics_path: '/metrics'
+
+  - job_name: 'pharmacy-service'
+    static_configs:
+      - targets: ['pharmacy-service:5004']
+    metrics_path: '/metrics'
+
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:5005']
+    metrics_path: '/metrics'
+
+  - job_name: 'search-service'
+    static_configs:
+      - targets: ['search-service:5006']
+    metrics_path: '/metrics'

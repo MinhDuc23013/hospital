@@ -1,0 +1,30 @@
+networks:
+  search-network:
+    driver: bridge
+
+services:
+  search-service:
+    build:
+      context: .
+      dockerfile: services/SearchService/Dockerfile
+    container_name: search-service
+    ports:
+      - "5006:5006"
+    environment:
+      - PORT=5006
+      - ELASTICSEARCH_URI=http://host.docker.internal:9200
+      - RABBITMQ_HOST=host.docker.internal
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=admin
+      - RABBITMQ_PASSWORD=123456
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5006/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - search-network

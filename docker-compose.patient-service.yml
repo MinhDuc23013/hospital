@@ -1,0 +1,24 @@
+networks:
+  patient-network:
+    driver: bridge
+
+services:
+  patient-service:
+    build:
+      context: .
+      dockerfile: services/PatientService/Dockerfile
+    container_name: patient-service
+    ports:
+      - "5001:5001"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5001
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5001 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - patient-network

@@ -1,0 +1,27 @@
+# Exclude node_modules from all services to keep build context small
+**/node_modules/
+**/dist/
+**/.next/
+**/.env
+**/.env.*
+!**/.env.example
+
+# .NET build artifacts (contain Windows paths — let Docker restore fresh)
+**/obj/
+**/bin/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+**/*.log
+**/logs/
+
+# Test artifacts
+**/coverage/
+**/.nyc_output/
+
+# OS
+.DS_Store
+Thumbs.db

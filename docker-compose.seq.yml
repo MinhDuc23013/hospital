@@ -1,0 +1,26 @@
+networks:
+  seq-network:
+    driver: bridge
+
+volumes:
+  seqdata:
+
+services:
+  seq:
+    image: datalust/seq:2023.4
+    container_name: seq
+    environment:
+      ACCEPT_EULA: Y
+    ports:
+      - "${SEQ_PORT:-5341}:80"
+    volumes:
+      - seqdata:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - seq-network

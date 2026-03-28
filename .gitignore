@@ -1,0 +1,43 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.swp
+appsettings.Development.json
+appsettings.*.json
+!appsettings.json
+*.pfx
+
+# Node.js
+node_modules/
+dist/
+.env
+logs/
+*.log
+npm-debug.log*
+
+# Next.js
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE
+.vs/
+.vscode/settings.json
+.idea/
+*.code-workspace
+
+# Docker
+docker-compose.override.yml
+
+# OS
+Thumbs.db
+.DS_Store
+*.orig
+
+# Test artifacts
+coverage/
+TestResults/
+.nyc_output/

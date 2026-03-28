@@ -1,0 +1,550 @@
+networks:
+  hospital-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  mongodata:
+  sqldata:
+  rabbitmqdata:
+  esdata:
+  redisdata:
+  keycloakdata:
+  seqdata:
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: hospital-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hospital}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-hospital_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/scripts/init-databases.sh:/docker-entrypoint-initdb.d/init.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hospital}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  mongo:
+    image: mongo:6-jammy
+    container_name: hospital-mongo
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: hospital-sqlserver
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: ${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd}
+      MSSQL_PID: Developer
+    ports:
+      - "${MSSQL_PORT:-1433}:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd} -Q 'SELECT 1' -No -C"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: hospital-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: hospital-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: hospital-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:22.0
+    container_name: hospital-keycloak
+    command: start-dev --import-realm --health-enabled=true
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_password_change_me}
+      KC_DB: dev-file
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
+    volumes:
+      - keycloakdata:/opt/keycloak/data
+      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 2>/dev/null && echo -e 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: hospital-prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: hospital-grafana
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  seq:
+    image: datalust/seq:2023.4
+    container_name: hospital-seq
+    environment:
+      ACCEPT_EULA: Y
+    ports:
+      - "${SEQ_PORT:-5341}:80"
+    volumes:
+      - seqdata:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  # ── Application Services ──────────────────────────────────────────────────
+
+  hospital-gateway:
+    build:
+      context: .
+      dockerfile: gateway/HospitalGateway/Dockerfile
+    container_name: hospital-gateway
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8000
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
+      - Keycloak__Audience=hospital-gateway
+      - Seq__Url=http://seq:5341
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8000 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  patient-service:
+    build:
+      context: .
+      dockerfile: services/PatientService/Dockerfile
+    container_name: patient-service
+    ports:
+      - "5001:5001"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5001
+      - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
+      - Kafka__BootstrapServers=kafka:9092
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__User=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-guest}
+      - Seq__Url=http://seq:5341
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5001 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  appointment-service:
+    build:
+      context: .
+      dockerfile: services/AppointmentService/Dockerfile
+    container_name: appointment-service
+    ports:
+      - "5002:5002"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5002
+      - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
+      - Kafka__BootstrapServers=kafka:9092
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__User=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-guest}
+      - Services__PatientService=http://patient-service:5001
+      - Services__DoctorScheduleService=http://doctor-schedule-service:5007
+      - Services__PaymentService=http://payment-service:5008
+      - Seq__Url=http://seq:5341
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      patient-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5002 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  medical-record-service:
+    build:
+      context: .
+      dockerfile: services/MedicalRecordService/Dockerfile
+    container_name: medical-record-service
+    ports:
+      - "5003:5003"
+    environment:
+      - PORT=5003
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongo:27017/hospital}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:5003/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  pharmacy-service:
+    build:
+      context: .
+      dockerfile: services/PharmacyService/Dockerfile
+    container_name: pharmacy-service
+    ports:
+      - "5004:5004"
+    environment:
+      - PORT=5004
+      - MSSQL_SERVER=sqlserver
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd}
+      - MSSQL_DB=hospital_pharmacy
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:5004/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/NotificationService/Dockerfile
+    container_name: notification-service
+    ports:
+      - "5005:5005"
+    environment:
+      - PORT=5005
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@hospital.local}
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:5005/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  search-service:
+    build:
+      context: .
+      dockerfile: services/SearchService/Dockerfile
+    container_name: search-service
+    ports:
+      - "5006:5006"
+    environment:
+      - PORT=5006
+      - ELASTICSEARCH_URI=${ELASTICSEARCH_URI:-http://elasticsearch:9200}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:5006/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  doctor-schedule-service:
+    build:
+      context: .
+      dockerfile: services/DoctorScheduleService/Dockerfile
+    container_name: doctor-schedule-service
+    ports:
+      - "5007:5007"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5007
+      - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
+      - Kafka__BootstrapServers=kafka:9092
+      - Seq__Url=http://seq:5341
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5007 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/PaymentService/Dockerfile
+    container_name: payment-service
+    ports:
+      - "5008:5008"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5008
+      - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
+      - Kafka__BootstrapServers=kafka:9092
+      - Services__AppointmentService=http://appointment-service:5002
+      - Seq__Url=http://seq:5341
+    depends_on:
+      postgres:
+        condition: service_healthy
+      appointment-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5008 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  # ── Client Applications ────────────────────────────────────────────────────
+
+  patient-client:
+    build:
+      context: ./client/patient-app
+      dockerfile: Dockerfile
+    container_name: patient-client
+    ports:
+      - "3100:3100"
+    environment:
+      # Public URL the browser uses to reach this app — must match Keycloak's
+      # Valid Redirect URIs exactly. Set via .env file, never hardcode a default.
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      # No fallback — missing secret causes immediate startup failure
+      # (safer than silently running with a known-insecure value)
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
+      - KEYCLOAK_CLIENT_ID=hospital-patient-portal
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
+      # Keycloak internal Docker hostname for server-side token validation
+      - KEYCLOAK_ISSUER=http://keycloak:8080/realms/hospital
+      # Server-only — no NEXT_PUBLIC_ prefix; never expose gateway URL to client bundle
+      - GATEWAY_API_URL=http://hospital-gateway:8000
+    depends_on:
+      hospital-gateway:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3100 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  doctor-app:
+    build:
+      context: .
+      dockerfile: client/doctor-app/Dockerfile
+    container_name: doctor-app
+    ports:
+      - "${DOCTOR_APP_PORT:-3200}:3200"
+    environment:
+      - NEXTAUTH_URL=http://localhost:3200
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-changeme}
+      - KEYCLOAK_CLIENT_ID=doctor-app
+      - KEYCLOAK_CLIENT_SECRET=${DOCTOR_APP_KEYCLOAK_SECRET:-}
+      - KEYCLOAK_ISSUER=http://keycloak:8080/realms/hospital
+      - GATEWAY_API_URL=http://hospital-gateway:8000
+    depends_on:
+      hospital-gateway:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3200 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - hospital-network

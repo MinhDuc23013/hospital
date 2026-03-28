@@ -1,0 +1,90 @@
+using AppointmentService.Application.Saga;
+using AppointmentService.Infrastructure.HttpClients;
+using AppointmentService.Infrastructure.MessageBus;
+using AppointmentService.Infrastructure.Persistence;
+using AppointmentService.Infrastructure.Repositories;
+using AppointmentService.Middleware;
+using Confluent.Kafka;
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using Serilog;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((ctx, cfg) => cfg
+    .ReadFrom.Configuration(ctx.Configuration)
+    .WriteTo.Console()
+    .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341"));
+
+// EF Core + PostgreSQL
+builder.Services.AddDbContext<AppointmentDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL")));
+
+// MediatR — scans current assembly for handlers
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+
+// FluentValidation
+builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
+
+// Kafka producer
+var kafkaBootstrap = builder.Configuration["Kafka:BootstrapServers"] ?? "localhost:9092";
+builder.Services.AddSingleton<IProducer<string, string>>(sp =>
+{
+    var config = new ProducerConfig { BootstrapServers = kafkaBootstrap };
+    Log.Information("Kafka config: bootstrap={Bootstrap}", kafkaBootstrap);
+    return new ProducerBuilder<string, string>(config).Build();
+});
+
+// PatientService HTTP client for patient validation
+builder.Services.AddHttpClient<PatientServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Services:PatientService"] ?? "http://patient-service:5001");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
+// DoctorScheduleService HTTP client
+builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Services:DoctorScheduleService"] ?? "http://doctor-schedule-service:5007");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+
+// PaymentService HTTP client
+builder.Services.AddHttpClient<PaymentServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+
+// Repositories & services
+builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+builder.Services.AddScoped<IBookingSagaRepository, BookingSagaRepository>();
+builder.Services.AddScoped<IBookingSagaLogRepository, BookingSagaLogRepository>();
+builder.Services.AddScoped<EventPublisher>();
+builder.Services.AddSingleton<NotificationPublisher>();
+builder.Services.AddScoped<BookingSagaOrchestrator>();
+
+builder.Services.AddControllers();
+
+// Swagger — Development only
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "Appointment Service API", Version = "v1" });
+});
+
+var app = builder.Build();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Appointment Service v1"));
+}
+
+app.MapControllers();
+app.Run();

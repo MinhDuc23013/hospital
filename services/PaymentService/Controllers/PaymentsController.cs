@@ -1,0 +1,81 @@
+using HospitalShared.DTOs;
+using MediatR;
+using Microsoft.AspNetCore.Mvc;
+using PaymentService.Application.Commands;
+using PaymentService.Application.Queries;
+using PaymentService.Domain.Enums;
+using PaymentService.Infrastructure.Repositories;
+
+namespace PaymentService.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class PaymentsController : ControllerBase
+{
+    private readonly IMediator _mediator;
+    private readonly IPaymentAuditLogRepository _logRepo;
+
+    public PaymentsController(IMediator mediator, IPaymentAuditLogRepository logRepo)
+    {
+        _mediator = mediator;
+        _logRepo = logRepo;
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<PaymentDto>> Create(
+        [FromBody] CreatePaymentCommand command, CancellationToken ct)
+    {
+        var result = await _mediator.Send(command, ct);
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<PaymentDto>> GetById(Guid id, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetPaymentQuery(id), ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpGet]
+    public async Task<ActionResult> List(
+        [FromQuery] Guid? appointmentId,
+        [FromQuery] Guid? patientId,
+        [FromQuery] PaymentStatus? status,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
+    {
+        var (items, total) = await _mediator.Send(
+            new ListPaymentsQuery(appointmentId, patientId, status, page, pageSize), ct);
+        return Ok(new { data = items, pagination = new { total, page, pageSize } });
+    }
+
+    [HttpGet("appointment/{appointmentId:guid}")]
+    public async Task<ActionResult<PaymentDto>> GetByAppointment(Guid appointmentId, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetPaymentByAppointmentQuery(appointmentId), ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpPost("{id:guid}/process")]
+    public async Task<ActionResult<PaymentDto>> Process(Guid id, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new ProcessPaymentCommand(id), ct);
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/refund")]
+    public async Task<ActionResult<PaymentDto>> Refund(Guid id, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new RefundPaymentCommand(id), ct);
+        return Ok(result);
+    }
+
+    /// <summary>Get audit logs for a payment.</summary>
+    [HttpGet("{id:guid}/logs")]
+    public async Task<ActionResult> GetLogs(Guid id, CancellationToken ct)
+    {
+        var logs = await _logRepo.GetByPaymentIdAsync(id, ct);
+        return Ok(logs);
+    }
+}
