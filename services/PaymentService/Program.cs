@@ -32,7 +32,7 @@ builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
 var kafkaBootstrap = builder.Configuration["Kafka:BootstrapServers"] ?? "localhost:9092";
 builder.Services.AddSingleton<IProducer<string, string>>(sp =>
 {
-    var config = new ProducerConfig { BootstrapServers = kafkaBootstrap };
+    var config = new ProducerConfig { BootstrapServers = kafkaBootstrap, MessageTimeoutMs = 15000 };
     Log.Information("Kafka config: bootstrap={Bootstrap}", kafkaBootstrap);
     return new ProducerBuilder<string, string>(config).Build();
 });
@@ -49,6 +49,7 @@ builder.Services.AddHttpClient<AppointmentServiceClient>(client =>
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentAuditLogRepository, PaymentAuditLogRepository>();
 builder.Services.AddScoped<EventPublisher>();
+builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<PaymentService.Infrastructure.Persistence.PaymentDbContext>>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));

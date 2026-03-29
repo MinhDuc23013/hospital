@@ -16,6 +16,16 @@ public class BookingSagaRepository : IBookingSagaRepository
     public Task<BookingSaga?> GetByAppointmentIdAsync(Guid appointmentId, CancellationToken ct = default)
         => _context.BookingSagas.FirstOrDefaultAsync(s => s.AppointmentId == appointmentId, ct);
 
+    /// <summary>Get the active (non-terminal) saga for an appointment.</summary>
+    public Task<BookingSaga?> GetActiveByAppointmentIdAsync(Guid appointmentId, CancellationToken ct = default)
+        => _context.BookingSagas.FirstOrDefaultAsync(s =>
+            s.AppointmentId == appointmentId
+            && s.CurrentStep != BookingSagaStep.Compensated
+            && s.CurrentStep != BookingSagaStep.Failed, ct);
+
+    public Task<BookingSaga?> GetByPaymentIdAsync(Guid paymentId, CancellationToken ct = default)
+        => _context.BookingSagas.FirstOrDefaultAsync(s => s.PaymentId == paymentId, ct);
+
     public Task<List<BookingSaga>> GetByStepOlderThanAsync(BookingSagaStep step, DateTime cutoff, CancellationToken ct = default)
         => _context.BookingSagas
             .Where(s => s.CurrentStep == step && s.UpdatedAt <= cutoff)

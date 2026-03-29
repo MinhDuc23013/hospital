@@ -34,7 +34,7 @@ builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
 var kafkaBootstrap = builder.Configuration["Kafka:BootstrapServers"] ?? "localhost:9092";
 builder.Services.AddSingleton<IProducer<string, string>>(sp =>
 {
-    var config = new ProducerConfig { BootstrapServers = kafkaBootstrap };
+    var config = new ProducerConfig { BootstrapServers = kafkaBootstrap, MessageTimeoutMs = 15000 };
     Log.Information("Kafka config: bootstrap={Bootstrap}", kafkaBootstrap);
     return new ProducerBuilder<string, string>(config).Build();
 });
@@ -75,6 +75,7 @@ builder.Services.AddScoped<BookingSagaOrchestrator>();
 // Background workers
 builder.Services.AddHostedService<CompensationRetryWorker>();
 builder.Services.AddHostedService<PaymentTimeoutWorker>();
+builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<AppointmentService.Infrastructure.Persistence.AppointmentDbContext>>();
 
 builder.Services.AddControllers();
 

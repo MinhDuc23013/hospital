@@ -26,7 +26,7 @@ public class AppointmentsController : ControllerBase
         [FromBody] BookAppointmentCommand command, CancellationToken ct)
     {
         var result = await _mediator.Send(command, ct);
-        if (result.Status is "AwaitingPayment" or "Completed")
+        if (result.Status is "AwaitingPayment" or "PaymentCompleted")
             return CreatedAtAction(nameof(GetById), new { id = result.AppointmentId }, result);
         return UnprocessableEntity(result);
     }
@@ -59,10 +59,10 @@ public class AppointmentsController : ControllerBase
 
     /// <summary>Cancel appointment with refund + slot release.</summary>
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+    public async Task<ActionResult<CancelAppointmentResult>> Cancel(Guid id, CancellationToken ct)
     {
-        await _mediator.Send(new CancelAppointmentCommand(id), ct);
-        return NoContent();
+        var result = await _mediator.Send(new CancelAppointmentCommand(id), ct);
+        return Ok(result);
     }
 
     /// <summary>Mark appointment as no-show (doctor/admin action, no refund).</summary>
@@ -74,10 +74,10 @@ public class AppointmentsController : ControllerBase
     }
 
     /// <summary>Confirm payment for a booking (called by payment webhook/callback).</summary>
-    [HttpPost("book/{sagaId:guid}/confirm-payment")]
-    public async Task<IActionResult> ConfirmPayment(Guid sagaId, CancellationToken ct)
+    [HttpPost("confirm-payment/{paymentId:guid}")]
+    public async Task<IActionResult> ConfirmPayment(Guid paymentId, CancellationToken ct)
     {
-        await _mediator.Send(new ConfirmPaymentCommand(sagaId), ct);
+        await _mediator.Send(new ConfirmPaymentCommand(paymentId), ct);
         return Ok(new { message = "Payment confirmed, booking completed." });
     }
 

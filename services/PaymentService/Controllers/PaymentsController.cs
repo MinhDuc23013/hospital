@@ -80,6 +80,14 @@ public class PaymentsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Cancel a pending/processing payment.</summary>
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<ActionResult<PaymentDto>> Cancel(Guid id, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new CancelPaymentCommand(id), ct);
+        return Ok(result);
+    }
+
     /// <summary>Get audit logs for a payment.</summary>
     [HttpGet("{id:guid}/logs")]
     public async Task<ActionResult> GetLogs(Guid id, CancellationToken ct)

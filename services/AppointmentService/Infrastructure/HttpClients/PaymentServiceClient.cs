@@ -67,6 +67,50 @@ public class PaymentServiceClient
         }
     }
 
+    /// <summary>Complete a payment after external confirmation.</summary>
+    public async Task<PaymentDto?> CompletePaymentAsync(Guid paymentId, string transactionId, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"api/payments/{paymentId}/complete";
+            _logger.LogInformation("CompletePayment calling {BaseAddress}{Url}", _http.BaseAddress, url);
+            var response = await _http.PostAsJsonAsync(url, new { transactionId }, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("CompletePayment failed {StatusCode}: {Body}", response.StatusCode, body);
+                return null;
+            }
+            return await response.Content.ReadFromJsonAsync<PaymentDto>(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CompletePayment exception for payment {PaymentId}", paymentId);
+            return null;
+        }
+    }
+
+    /// <summary>Cancel a pending/processing payment (no charge happened).</summary>
+    public async Task<bool> CancelPaymentAsync(Guid paymentId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsync($"api/payments/{paymentId}/cancel", null, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("CancelPayment failed {StatusCode}: {Body}", response.StatusCode, body);
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CancelPayment exception for payment {PaymentId}", paymentId);
+            return false;
+        }
+    }
+
     /// <summary>Refund a completed payment (compensation).</summary>
     public async Task<bool> RefundPaymentAsync(Guid paymentId, CancellationToken ct = default)
     {

@@ -9,7 +9,7 @@ public enum BookingSagaStep
     PaymentCreated = 3,
     SlotConfirmed = 4,
     AwaitingPayment = 5,   // Waiting for external payment confirmation
-    Completed = 6,
+    PaymentCompleted = 6,
     Failed = 10,
     Compensating = 11,
     Compensated = 12

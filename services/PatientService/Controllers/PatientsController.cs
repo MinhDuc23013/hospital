@@ -46,6 +46,6 @@ public class PatientsController : ControllerBase
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         await _mediator.Send(new DeletePatientCommand(id), ct);
-        return NoContent();
+        return Ok(new { success = true, message = "Patient deleted successfully." });
     }
 }

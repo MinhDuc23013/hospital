@@ -444,23 +444,27 @@ services:
   search-service:
     build:
       context: .
-      dockerfile: services/SearchService/Dockerfile
+      dockerfile: services/SearchServiceDotnet/Dockerfile
     container_name: search-service
     ports:
       - "5006:5006"
     environment:
-      - PORT=5006
-      - ELASTICSEARCH_URI=${ELASTICSEARCH_URI:-http://elasticsearch:9200}
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5006
+      - Elasticsearch__Uri=http://elasticsearch:9200
+      - Kafka__BootstrapServers=kafka:9092
+      - Seq__Url=http://seq:5341
+      - Services__PatientService=http://patient-service:5001
+      - Services__AppointmentService=http://appointment-service:5002
+      - Services__DoctorScheduleService=http://doctor-schedule-service:5007
+      - Services__PaymentService=http://payment-service:5008
     depends_on:
       elasticsearch:
         condition: service_healthy
-      rabbitmq:
+      kafka:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:5006/health || exit 1"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5006 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5

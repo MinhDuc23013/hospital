@@ -185,9 +185,21 @@ public class BookingSagaOrchestrator
             return;
         }
 
+        // Process then complete payment in PaymentService: Pending → Processing → Completed
+        if (saga.PaymentId.HasValue)
+        {
+            await _paymentClient.ProcessPaymentAsync(saga.PaymentId.Value, ct);
+            var txId = $"SAGA-{saga.Id}";
+            var completed = await _paymentClient.CompletePaymentAsync(saga.PaymentId.Value, txId, ct);
+            if (completed is null)
+                _logger.LogWarning("Saga {SagaId} failed to complete payment {PaymentId}", sagaId, saga.PaymentId);
+            else
+                _logger.LogInformation("Saga {SagaId} payment {PaymentId} completed (txId={TxId})", sagaId, saga.PaymentId, txId);
+        }
+
         saga.MarkCompleted();
         await _sagaRepo.SaveChangesAsync(ct);
-        await LogStepAsync(saga, "AwaitingPayment", "Completed", "Payment confirmed, booking complete", ct: ct);
+        await LogStepAsync(saga, "AwaitingPayment", "PaymentCompleted", "Payment confirmed, booking complete", ct: ct);
 
         // Get appointment to retrieve scheduled time for notification
         var appointment = await _appointmentRepo.GetByIdAsync(saga.AppointmentId!.Value, ct);

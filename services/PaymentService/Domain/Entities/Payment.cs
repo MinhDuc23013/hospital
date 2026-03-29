@@ -71,6 +71,15 @@ public class Payment
         UpdatedAt = DateTime.Now;
     }
 
+    /// <summary>Cancel a pending/processing payment (no money was charged).</summary>
+    public void Cancel()
+    {
+        if (Status is not (PaymentStatus.Pending or PaymentStatus.Processing))
+            throw new DomainException($"Cannot cancel payment in status '{Status}'.");
+        Status = PaymentStatus.Failed;
+        UpdatedAt = DateTime.Now;
+    }
+
     /// <summary>Refund a completed payment.</summary>
     public void Refund()
     {

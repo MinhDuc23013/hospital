@@ -83,7 +83,7 @@ public class DoctorSchedulesController : ControllerBase
         Guid scheduleId, Guid slotId, CancellationToken ct)
     {
         await _mediator.Send(new ReleaseSlotCommand(scheduleId, slotId), ct);
-        return NoContent();
+        return Ok(new { success = true, message = $"Slot {slotId} released successfully." });
     }
 }
 

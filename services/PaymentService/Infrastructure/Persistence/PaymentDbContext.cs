@@ -1,3 +1,4 @@
+using HospitalShared.Outbox;
 using Microsoft.EntityFrameworkCore;
 using PaymentService.Domain.Entities;
 
@@ -7,6 +8,7 @@ public class PaymentDbContext : DbContext
 {
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<PaymentAuditLog> PaymentAuditLogs => Set<PaymentAuditLog>();
+    public DbSet<EventOutbox> EventOutbox => Set<EventOutbox>();
 
     public PaymentDbContext(DbContextOptions<PaymentDbContext> options) : base(options) { }
 
@@ -14,5 +16,6 @@ public class PaymentDbContext : DbContext
     {
         modelBuilder.ApplyConfiguration(new PaymentConfiguration());
         modelBuilder.ApplyConfiguration(new PaymentAuditLogConfiguration());
+        modelBuilder.ApplyConfiguration(new EventOutboxConfiguration());
     }
 }

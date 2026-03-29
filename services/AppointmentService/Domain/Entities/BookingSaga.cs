@@ -65,7 +65,7 @@ public class BookingSaga
 
     public void MarkSlotConfirmed() => AdvanceTo(BookingSagaStep.SlotConfirmed);
     public void MarkAwaitingPayment() => AdvanceTo(BookingSagaStep.AwaitingPayment);
-    public void MarkCompleted() => AdvanceTo(BookingSagaStep.Completed);
+    public void MarkCompleted() => AdvanceTo(BookingSagaStep.PaymentCompleted);
 
     public void MarkFailed(string reason)
     {

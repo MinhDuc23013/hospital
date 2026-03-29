@@ -52,6 +52,6 @@ public class DoctorsController : ControllerBase
     public async Task<IActionResult> Deactivate(Guid id, CancellationToken ct)
     {
         await _mediator.Send(new DeactivateDoctorCommand(id), ct);
-        return NoContent();
+        return Ok(new { success = true, message = "Doctor deactivated successfully." });
     }
 }
