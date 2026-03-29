@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaymentService", "services\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SearchServiceDotnet", "services\SearchServiceDotnet\SearchServiceDotnet.csproj", "{71F404E3-778D-4C3D-BF97-01E44E4B2DB5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PharmacyServiceDotnet", "services\PharmacyServiceDotnet\PharmacyServiceDotnet.csproj", "{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -117,6 +119,18 @@ Global
 		{71F404E3-778D-4C3D-BF97-01E44E4B2DB5}.Release|x64.Build.0 = Release|Any CPU
 		{71F404E3-778D-4C3D-BF97-01E44E4B2DB5}.Release|x86.ActiveCfg = Release|Any CPU
 		{71F404E3-778D-4C3D-BF97-01E44E4B2DB5}.Release|x86.Build.0 = Release|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Debug|x64.Build.0 = Debug|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Debug|x86.Build.0 = Debug|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Release|x64.ActiveCfg = Release|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Release|x64.Build.0 = Release|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Release|x86.ActiveCfg = Release|Any CPU
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -129,6 +143,7 @@ Global
 		{A1B2C3D4-1111-2222-3333-444455556666} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
 		{A1B2C3D4-5555-6666-7777-888899990000} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
 		{71F404E3-778D-4C3D-BF97-01E44E4B2DB5} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
+		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D2C75654-E569-4080-A9CF-3B6B4272E2DC}

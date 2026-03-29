@@ -384,25 +384,27 @@ services:
   pharmacy-service:
     build:
       context: .
-      dockerfile: services/PharmacyService/Dockerfile
+      dockerfile: services/PharmacyServiceDotnet/Dockerfile
     container_name: pharmacy-service
     ports:
       - "5004:5004"
     environment:
-      - PORT=5004
-      - MSSQL_SERVER=sqlserver
-      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd}
-      - MSSQL_DB=hospital_pharmacy
-      - KAFKA_BROKERS=kafka:9092
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5004
+      - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
+      - Kafka__BootstrapServers=kafka:9092
+      - Seq__Url=http://seq:5341
     depends_on:
-      sqlserver:
+      postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:5004/health || exit 1"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5004 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 20s
     restart: unless-stopped
     networks:
       - hospital-network
