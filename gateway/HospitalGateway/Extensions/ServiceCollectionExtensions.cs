@@ -38,8 +38,7 @@ public static class ServiceCollectionExtensions
                     ValidateAudience = true,
                     ValidAudience = audience,
 
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.FromMinutes(2)
+                    ValidateLifetime = false
                 };
 
                 options.Events = new JwtBearerEvents

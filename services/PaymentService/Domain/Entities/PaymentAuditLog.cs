@@ -31,7 +31,7 @@ public class PaymentAuditLog
             NewStatus = newStatus,
             Message = message,
             Details = details,
-            Timestamp = DateTime.UtcNow
+            Timestamp = DateTime.Now
         };
     }
 }

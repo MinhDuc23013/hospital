@@ -8,5 +8,5 @@ public class PaymentCompletedEvent
     public Guid PatientId { get; set; }
     public decimal Amount { get; set; }
     public string Method { get; set; } = string.Empty;
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    public DateTime Timestamp { get; set; } = DateTime.Now;
 }

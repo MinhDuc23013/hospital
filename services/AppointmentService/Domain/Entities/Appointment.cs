@@ -7,7 +7,7 @@ public class Appointment
 {
     public Guid Id { get; private set; }
     public Guid PatientId { get; private set; }
-    public string ProviderId { get; private set; } = string.Empty;
+    public string DoctorId { get; private set; } = string.Empty;
     public DateTime ScheduledTime { get; private set; }
     public int DurationMinutes { get; private set; }
     public AppointmentStatus Status { get; private set; }
@@ -23,16 +23,17 @@ public class Appointment
         {
             Id = Guid.NewGuid(),
             PatientId = patientId,
-            ProviderId = providerId,
+            DoctorId = providerId,
             ScheduledTime = scheduledTime,
             DurationMinutes = durationMinutes,
             Status = AppointmentStatus.Scheduled,
             Notes = notes,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
         };
     }
 
-    public void Cancel() { Status = AppointmentStatus.Cancelled; UpdatedAt = DateTime.UtcNow; }
-    public void Complete() { Status = AppointmentStatus.Completed; UpdatedAt = DateTime.UtcNow; }
+    public void Cancel() { Status = AppointmentStatus.Cancelled; UpdatedAt = DateTime.Now; }
+    public void Complete() { Status = AppointmentStatus.Completed; UpdatedAt = DateTime.Now; }
+    public void MarkNoShow() { Status = AppointmentStatus.NoShow; UpdatedAt = DateTime.Now; }
 }

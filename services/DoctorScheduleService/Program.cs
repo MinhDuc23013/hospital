@@ -7,6 +7,8 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((ctx, cfg) => cfg
@@ -16,7 +18,8 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
 
 // EF Core + PostgreSQL
 builder.Services.AddDbContext<DoctorScheduleDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL"),
+        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null)));
 
 // MediatR — scans current assembly for handlers
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
@@ -34,6 +37,7 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
 });
 
 // Repositories & services
+builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
 builder.Services.AddScoped<IDoctorScheduleRepository, DoctorScheduleRepository>();
 builder.Services.AddScoped<EventPublisher>();
 

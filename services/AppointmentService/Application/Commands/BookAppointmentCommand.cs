@@ -5,7 +5,7 @@ namespace AppointmentService.Application.Commands;
 /// <summary>Command to trigger the full booking saga: create appointment → reserve slot → pay → confirm → notify.</summary>
 public record BookAppointmentCommand(
     Guid PatientId,
-    string ProviderId,
+    string DoctorId,
     Guid ScheduleId,
     Guid SlotId,
     DateTime ScheduledTime,
@@ -22,5 +22,6 @@ public record BookAppointmentResult(
     Guid? AppointmentId,
     Guid? PaymentId,
     string Status,
-    string? FailureReason
+    string? FailureReason,
+    string? TraceId
 );

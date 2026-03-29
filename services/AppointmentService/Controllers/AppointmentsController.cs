@@ -26,7 +26,7 @@ public class AppointmentsController : ControllerBase
         [FromBody] BookAppointmentCommand command, CancellationToken ct)
     {
         var result = await _mediator.Send(command, ct);
-        if (result.Status == "Completed")
+        if (result.Status is "AwaitingPayment" or "Completed")
             return CreatedAtAction(nameof(GetById), new { id = result.AppointmentId }, result);
         return UnprocessableEntity(result);
     }
@@ -57,11 +57,28 @@ public class AppointmentsController : ControllerBase
         return Ok(new { data = items, pagination = new { total, page, pageSize } });
     }
 
+    /// <summary>Cancel appointment with refund + slot release.</summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
     {
         await _mediator.Send(new CancelAppointmentCommand(id), ct);
         return NoContent();
+    }
+
+    /// <summary>Mark appointment as no-show (doctor/admin action, no refund).</summary>
+    [HttpPost("{id:guid}/no-show")]
+    public async Task<IActionResult> NoShow(Guid id, CancellationToken ct)
+    {
+        await _mediator.Send(new NoShowAppointmentCommand(id), ct);
+        return Ok(new { message = "Appointment marked as no-show." });
+    }
+
+    /// <summary>Confirm payment for a booking (called by payment webhook/callback).</summary>
+    [HttpPost("book/{sagaId:guid}/confirm-payment")]
+    public async Task<IActionResult> ConfirmPayment(Guid sagaId, CancellationToken ct)
+    {
+        await _mediator.Send(new ConfirmPaymentCommand(sagaId), ct);
+        return Ok(new { message = "Payment confirmed, booking completed." });
     }
 
     /// <summary>Get saga audit logs for a booking.</summary>

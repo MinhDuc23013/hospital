@@ -37,8 +37,8 @@ public class DoctorSchedule
             EndTime = endTime,
             SlotDurationMinutes = slotDurationMinutes,
             Status = ScheduleStatus.Active,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
         };
 
         schedule.GenerateSlots();
@@ -61,7 +61,7 @@ public class DoctorSchedule
     {
         var slot = FindSlot(slotId);
         slot.Reserve(patientId, reservationMinutes);
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
         RefreshStatus();
         return slot;
     }
@@ -71,7 +71,7 @@ public class DoctorSchedule
     {
         var slot = FindSlot(slotId);
         slot.Confirm(appointmentId);
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
         RefreshStatus();
         return slot;
     }
@@ -81,7 +81,7 @@ public class DoctorSchedule
     {
         var slot = FindSlot(slotId);
         slot.Release();
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
         RefreshStatus();
         return slot;
     }
@@ -91,7 +91,7 @@ public class DoctorSchedule
     {
         var slot = FindSlot(slotId);
         slot.Cancel();
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
         RefreshStatus();
         return slot;
     }

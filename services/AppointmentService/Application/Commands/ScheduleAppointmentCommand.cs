@@ -5,7 +5,7 @@ namespace AppointmentService.Application.Commands;
 
 public record ScheduleAppointmentCommand(
     Guid PatientId,
-    string ProviderId,
+    string DoctorId,
     DateTime ScheduledTime,
     int DurationMinutes,
     string? Notes

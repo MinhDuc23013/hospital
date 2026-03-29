@@ -26,8 +26,8 @@ public class Patient
             DateOfBirth = dateOfBirth,
             PhoneNumber = phone,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
         };
     }
 
@@ -36,7 +36,7 @@ public class Patient
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
         PhoneNumber = phoneNumber;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
     }
 
     public void Deactivate() => IsActive = false;

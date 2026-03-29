@@ -27,31 +27,14 @@ public class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, Paym
         var payment = await _repo.GetByIdAsync(cmd.PaymentId, ct)
             ?? throw new NotFoundException("Payment", cmd.PaymentId);
 
-        // Transition to Processing then simulate auto-complete
+        // Transition to Processing — actual payment completion comes from external callback
         payment.Process();
 
         var processingLog = PaymentAuditLog.Create(payment.Id, "Processing", oldStatus: "Pending", newStatus: "Processing");
         await _auditRepo.AddAsync(processingLog, ct);
 
-        // Simulate successful payment processing — generate external transaction ref
-        var transactionId = Guid.NewGuid().ToString();
-        payment.Complete(transactionId);
-
-        var completedLog = PaymentAuditLog.Create(payment.Id, "Completed", oldStatus: "Processing", newStatus: "Completed");
-        await _auditRepo.AddAsync(completedLog, ct);
-
         await _repo.SaveChangesAsync(ct);
         await _auditRepo.SaveChangesAsync(ct);
-
-        await _events.PublishAsync(new PaymentCompletedEvent
-        {
-            PaymentId = payment.Id,
-            AppointmentId = payment.AppointmentId,
-            PatientId = payment.PatientId,
-            Amount = payment.Amount,
-            Method = payment.Method.ToString(),
-            Timestamp = DateTime.UtcNow
-        }, ct);
 
         return PaymentMapper.ToDto(payment);
     }

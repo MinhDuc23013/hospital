@@ -8,10 +8,10 @@ public class BookAppointmentValidator : AbstractValidator<BookAppointmentCommand
     public BookAppointmentValidator()
     {
         RuleFor(x => x.PatientId).NotEmpty();
-        RuleFor(x => x.ProviderId).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.DoctorId).NotEmpty().MaximumLength(100);
         RuleFor(x => x.ScheduleId).NotEmpty();
         RuleFor(x => x.SlotId).NotEmpty();
-        RuleFor(x => x.ScheduledTime).NotEmpty().GreaterThan(DateTime.UtcNow);
+        RuleFor(x => x.ScheduledTime).NotEmpty().GreaterThan(DateTime.Now);
         RuleFor(x => x.DurationMinutes).InclusiveBetween(5, 480);
         RuleFor(x => x.PaymentAmount).GreaterThan(0);
         RuleFor(x => x.PaymentMethod).NotEmpty();

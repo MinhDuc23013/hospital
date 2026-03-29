@@ -13,7 +13,7 @@ public class ListAppointmentsHandler : IRequestHandler<ListAppointmentsQuery, (L
     public async Task<(List<AppointmentDto> Items, int Total)> Handle(ListAppointmentsQuery query, CancellationToken ct)
     {
         var (appointments, total) = await _repo.ListAsync(
-            query.PatientId, query.ProviderId, query.Page, query.PageSize, ct);
+            query.PatientId, query.DoctorId, query.Page, query.PageSize, ct);
         return (appointments.Select(ScheduleAppointmentHandler.MapToDto).ToList(), total);
     }
 }

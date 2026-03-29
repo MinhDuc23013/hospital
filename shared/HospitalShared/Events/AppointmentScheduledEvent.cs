@@ -5,8 +5,8 @@ public class AppointmentScheduledEvent
 {
     public Guid AppointmentId { get; set; }
     public Guid PatientId { get; set; }
-    public string ProviderId { get; set; } = string.Empty;
+    public string DoctorId { get; set; } = string.Empty;
     public DateTime ScheduledTime { get; set; }
     public int DurationMinutes { get; set; }
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    public DateTime Timestamp { get; set; } = DateTime.Now;
 }

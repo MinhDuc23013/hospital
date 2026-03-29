@@ -22,6 +22,8 @@ public class EventPublisher : IDisposable
         var key = Guid.NewGuid().ToString();
         var value = JsonSerializer.Serialize(@event);
 
+        try
+        {
         var result = await _producer.ProduceAsync(topic, new Message<string, string>
         {
             Key = key,
@@ -30,6 +32,12 @@ public class EventPublisher : IDisposable
 
         _logger.LogInformation("Published {EventType} to Kafka topic {Topic} [partition={Partition}, offset={Offset}]",
             typeof(T).Name, topic, result.Partition.Value, result.Offset.Value);
+        }
+        catch (ProduceException<string, string> ex)
+        {
+            _logger.LogError(ex, "Failed to publish {EventType} to topic {Topic}: {Reason}",
+                typeof(T).Name, topic, ex.Error.Reason);
+        }
     }
 
     private static string GetTopicName<T>()

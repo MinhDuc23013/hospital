@@ -10,5 +10,5 @@ public class SlotReservedEvent
     public DateTime ScheduledTime { get; set; }
     public int DurationMinutes { get; set; }
     public DateTime ReservedUntil { get; set; }
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    public DateTime Timestamp { get; set; } = DateTime.Now;
 }

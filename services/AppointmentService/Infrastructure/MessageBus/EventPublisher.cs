@@ -22,14 +22,22 @@ public class EventPublisher : IDisposable
         var key = Guid.NewGuid().ToString();
         var value = JsonSerializer.Serialize(@event);
 
+        try
+        {
         var result = await _producer.ProduceAsync(topic, new Message<string, string>
         {
             Key = key,
             Value = value
         }, ct);
 
-        _logger.LogInformation("Published {EventType} to topic {Topic} [partition={Partition}, offset={Offset}]",
+            _logger.LogInformation("Published {EventType} to topic {Topic} [partition={Partition}, offset={Offset}]",
             typeof(T).Name, topic, result.Partition.Value, result.Offset.Value);
+        }
+        catch (ProduceException<string, string> ex)
+        {
+            _logger.LogError(ex, "Failed to publish {EventType} to topic {Topic}: {Reason}",
+                typeof(T).Name, topic, ex.Error.Reason);
+        }
     }
 
     /// <summary>Send event to a specific topic (point-to-point).</summary>

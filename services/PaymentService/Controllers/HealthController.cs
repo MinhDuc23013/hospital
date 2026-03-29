@@ -7,5 +7,5 @@ public class HealthController : ControllerBase
 {
     [HttpGet("/health")]
     public IActionResult Health() =>
-        Ok(new { service = "PaymentService", status = "healthy", timestamp = DateTime.UtcNow });
+        Ok(new { service = "PaymentService", status = "healthy", timestamp = DateTime.Now });
 }

@@ -17,12 +17,11 @@ public class DoctorScheduleConfiguration : IEntityTypeConfiguration<DoctorSchedu
         builder.HasIndex(s => s.DoctorId);
         builder.HasIndex(s => new { s.DoctorId, s.Date });
 
-        // Map the private _slots backing field via shadow navigation name
-        builder.HasMany<DoctorScheduleService.Domain.Entities.TimeSlot>("_slots")
+        builder.HasMany(s => s.Slots)
             .WithOne()
             .HasForeignKey(sl => sl.ScheduleId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.Navigation("_slots").UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.Navigation(s => s.Slots).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

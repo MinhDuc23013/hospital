@@ -10,7 +10,7 @@ public class BookingSagaConfiguration : IEntityTypeConfiguration<BookingSaga>
     {
         builder.ToTable("booking_sagas");
         builder.HasKey(s => s.Id);
-        builder.Property(s => s.ProviderId).IsRequired().HasMaxLength(100);
+        builder.Property(s => s.DoctorId).IsRequired().HasMaxLength(100);
         builder.Property(s => s.PaymentMethod).IsRequired().HasMaxLength(50);
         builder.Property(s => s.PaymentAmount).HasPrecision(18, 2);
         builder.Property(s => s.CurrentStep).HasConversion<string>().HasMaxLength(20);

@@ -25,7 +25,7 @@ public class BookingSagaLog
             ToStep = toStep,
             Message = message,
             Details = details,
-            Timestamp = DateTime.UtcNow
+            Timestamp = DateTime.Now
         };
     }
 }

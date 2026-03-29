@@ -22,14 +22,22 @@ public class EventPublisher : IDisposable
         var key = Guid.NewGuid().ToString();
         var value = JsonSerializer.Serialize(@event);
 
-        var result = await _producer.ProduceAsync(topic, new Message<string, string>
+        try
         {
-            Key = key,
-            Value = value
-        }, ct);
+            var result = await _producer.ProduceAsync(topic, new Message<string, string>
+            {
+                Key = key,
+                Value = value
+            }, ct);
 
-        _logger.LogInformation("Published {EventType} to topic {Topic} [partition={Partition}, offset={Offset}]",
-            typeof(T).Name, topic, result.Partition.Value, result.Offset.Value);
+            _logger.LogInformation("Published {EventType} to topic {Topic} [partition={Partition}, offset={Offset}]",
+                typeof(T).Name, topic, result.Partition.Value, result.Offset.Value);
+        }
+        catch (ProduceException<string, string> ex)
+        {
+            _logger.LogError(ex, "Failed to publish {EventType} to topic {Topic}: {Reason}",
+                typeof(T).Name, topic, ex.Error.Reason);
+        }
     }
 
     /// <summary>Send event to a specific topic (point-to-point).</summary>
@@ -38,13 +46,21 @@ public class EventPublisher : IDisposable
         var key = Guid.NewGuid().ToString();
         var value = JsonSerializer.Serialize(@event);
 
-        await _producer.ProduceAsync(topic, new Message<string, string>
+        try
         {
-            Key = key,
-            Value = value
-        }, ct);
+            await _producer.ProduceAsync(topic, new Message<string, string>
+            {
+                Key = key,
+                Value = value
+            }, ct);
 
-        _logger.LogInformation("Sent {EventType} to topic {Topic}", typeof(T).Name, topic);
+            _logger.LogInformation("Sent {EventType} to topic {Topic}", typeof(T).Name, topic);
+        }
+        catch (ProduceException<string, string> ex)
+        {
+            _logger.LogError(ex, "Failed to send {EventType} to topic {Topic}: {Reason}",
+                typeof(T).Name, topic, ex.Error.Reason);
+        }
     }
 
     private static string GetTopicName<T>()

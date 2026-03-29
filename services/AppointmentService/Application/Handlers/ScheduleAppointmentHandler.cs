@@ -35,7 +35,7 @@ public class ScheduleAppointmentHandler : IRequestHandler<ScheduleAppointmentCom
             throw new DomainException($"Patient {cmd.PatientId} not found or PatientService unavailable.");
 
         var appointment = Appointment.Create(
-            cmd.PatientId, cmd.ProviderId, cmd.ScheduledTime, cmd.DurationMinutes, cmd.Notes);
+            cmd.PatientId, cmd.DoctorId, cmd.ScheduledTime, cmd.DurationMinutes, cmd.Notes);
         await _repo.AddAsync(appointment, ct);
         await _repo.SaveChangesAsync(ct);
 
@@ -43,7 +43,7 @@ public class ScheduleAppointmentHandler : IRequestHandler<ScheduleAppointmentCom
         {
             AppointmentId = appointment.Id,
             PatientId = appointment.PatientId,
-            ProviderId = appointment.ProviderId,
+            DoctorId = appointment.DoctorId,
             ScheduledTime = appointment.ScheduledTime,
             DurationMinutes = appointment.DurationMinutes
         };
@@ -60,7 +60,7 @@ public class ScheduleAppointmentHandler : IRequestHandler<ScheduleAppointmentCom
     {
         Id = a.Id,
         PatientId = a.PatientId,
-        ProviderId = a.ProviderId,
+        DoctorId = a.DoctorId,
         ScheduledTime = a.ScheduledTime,
         DurationMinutes = a.DurationMinutes,
         Status = a.Status.ToString(),

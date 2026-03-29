@@ -17,7 +17,7 @@ public class AppointmentRepository : IAppointmentRepository
     {
         var query = _context.Appointments.AsQueryable();
         if (patientId.HasValue) query = query.Where(a => a.PatientId == patientId);
-        if (!string.IsNullOrEmpty(providerId)) query = query.Where(a => a.ProviderId == providerId);
+        if (!string.IsNullOrEmpty(providerId)) query = query.Where(a => a.DoctorId == providerId);
         query = query.OrderByDescending(a => a.ScheduledTime);
         var total = await query.CountAsync(ct);
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);

@@ -1,4 +1,5 @@
 using AppointmentService.Application.Saga;
+using AppointmentService.Infrastructure.BackgroundJobs;
 using AppointmentService.Infrastructure.HttpClients;
 using AppointmentService.Infrastructure.MessageBus;
 using AppointmentService.Infrastructure.Persistence;
@@ -9,6 +10,8 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((ctx, cfg) => cfg
@@ -18,7 +21,8 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
 
 // EF Core + PostgreSQL
 builder.Services.AddDbContext<AppointmentDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL"),
+        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null)));
 
 // MediatR — scans current assembly for handlers
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
@@ -48,7 +52,7 @@ builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:DoctorScheduleService"] ?? "http://doctor-schedule-service:5007");
-    client.Timeout = TimeSpan.FromSeconds(10);
+    client.Timeout = TimeSpan.FromSeconds(30);
 });
 
 // PaymentService HTTP client
@@ -56,16 +60,21 @@ builder.Services.AddHttpClient<PaymentServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008");
-    client.Timeout = TimeSpan.FromSeconds(10);
+    client.Timeout = TimeSpan.FromSeconds(30);
 });
 
 // Repositories & services
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<IBookingSagaRepository, BookingSagaRepository>();
 builder.Services.AddScoped<IBookingSagaLogRepository, BookingSagaLogRepository>();
+builder.Services.AddScoped<ICompensationOutboxRepository, CompensationOutboxRepository>();
 builder.Services.AddScoped<EventPublisher>();
 builder.Services.AddSingleton<NotificationPublisher>();
 builder.Services.AddScoped<BookingSagaOrchestrator>();
+
+// Background workers
+builder.Services.AddHostedService<CompensationRetryWorker>();
+builder.Services.AddHostedService<PaymentTimeoutWorker>();
 
 builder.Services.AddControllers();
 

@@ -7,5 +7,5 @@ public class InventoryLowEvent
     public string DrugName { get; set; } = string.Empty;
     public int CurrentStock { get; set; }
     public int MinimumStock { get; set; }
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    public DateTime Timestamp { get; set; } = DateTime.Now;
 }

@@ -7,5 +7,5 @@ public class PrescriptionIssuedEvent
     public Guid PatientId { get; set; }
     public string DrugId { get; set; } = string.Empty;
     public int Quantity { get; set; }
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    public DateTime Timestamp { get; set; } = DateTime.Now;
 }

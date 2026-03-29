@@ -23,16 +23,23 @@ public class PaymentServiceClient
     {
         try
         {
-            var response = await _http.PostAsJsonAsync("api/payments", new
+            var url = "api/payments";
+            _logger.LogInformation("CreatePayment calling {BaseAddress}{Url}", _http.BaseAddress, url);
+            var response = await _http.PostAsJsonAsync(url, new
             {
                 appointmentId, patientId, amount, currency, method, description
             }, ct);
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("CreatePayment failed {StatusCode}: {Body}", response.StatusCode, body);
+                return null;
+            }
             return await response.Content.ReadFromJsonAsync<PaymentDto>(ct);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to create payment for appointment {AppointmentId}", appointmentId);
+            _logger.LogError(ex, "CreatePayment exception for appointment {AppointmentId}", appointmentId);
             return null;
         }
     }
@@ -42,13 +49,20 @@ public class PaymentServiceClient
     {
         try
         {
-            var response = await _http.PostAsync($"api/payments/{paymentId}/process", null, ct);
-            response.EnsureSuccessStatusCode();
+            var url = $"api/payments/{paymentId}/process";
+            _logger.LogInformation("ProcessPayment calling {BaseAddress}{Url}", _http.BaseAddress, url);
+            var response = await _http.PostAsync(url, null, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("ProcessPayment failed {StatusCode}: {Body}", response.StatusCode, body);
+                return null;
+            }
             return await response.Content.ReadFromJsonAsync<PaymentDto>(ct);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to process payment {PaymentId}", paymentId);
+            _logger.LogError(ex, "ProcessPayment exception for payment {PaymentId}", paymentId);
             return null;
         }
     }

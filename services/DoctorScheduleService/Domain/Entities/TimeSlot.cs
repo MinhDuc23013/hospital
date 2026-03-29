@@ -24,7 +24,7 @@ public class TimeSlot
         StartTime = startTime,
         EndTime = endTime,
         Status = SlotStatus.Available,
-        CreatedAt = DateTime.UtcNow
+        CreatedAt = DateTime.Now
     };
 
     internal void Reserve(Guid patientId, int reservationMinutes)
@@ -33,7 +33,7 @@ public class TimeSlot
             throw new Exceptions.DomainException($"Slot {Id} is not available (current status: {Status}).");
         Status = SlotStatus.Reserved;
         PatientId = patientId;
-        ReservedUntil = DateTime.UtcNow.AddMinutes(reservationMinutes);
+        ReservedUntil = DateTime.Now.AddMinutes(reservationMinutes);
     }
 
     internal void Confirm(Guid appointmentId)

@@ -64,6 +64,15 @@ public class PaymentsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Complete a payment after external provider confirmation (webhook/callback).</summary>
+    [HttpPost("{id:guid}/complete")]
+    public async Task<ActionResult<PaymentDto>> Complete(
+        Guid id, [FromBody] CompletePaymentRequest body, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new CompletePaymentCommand(id, body.TransactionId), ct);
+        return Ok(result);
+    }
+
     [HttpPost("{id:guid}/refund")]
     public async Task<ActionResult<PaymentDto>> Refund(Guid id, CancellationToken ct)
     {
@@ -79,3 +88,6 @@ public class PaymentsController : ControllerBase
         return Ok(logs);
     }
 }
+
+/// <summary>Request body for external payment completion.</summary>
+public record CompletePaymentRequest(string TransactionId);

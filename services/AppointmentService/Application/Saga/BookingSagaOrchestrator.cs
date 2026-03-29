@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AppointmentService.Domain.Entities;
 using AppointmentService.Domain.Enums;
 using AppointmentService.Infrastructure.HttpClients;
@@ -10,13 +11,14 @@ namespace AppointmentService.Application.Saga;
 /// <summary>
 /// Saga orchestrator for the appointment booking flow.
 /// Coordinates: CreateAppointment → ReserveSlot → ProcessPayment → ConfirmSlot → Notify.
-/// Handles compensation (rollback) on failure at each step.
+/// Handles compensation (rollback) on failure with retry + outbox fallback.
 /// </summary>
 public class BookingSagaOrchestrator
 {
     private readonly IAppointmentRepository _appointmentRepo;
     private readonly IBookingSagaRepository _sagaRepo;
     private readonly IBookingSagaLogRepository _logRepo;
+    private readonly ICompensationOutboxRepository _outboxRepo;
     private readonly PatientServiceClient _patientClient;
     private readonly DoctorScheduleServiceClient _scheduleClient;
     private readonly PaymentServiceClient _paymentClient;
@@ -24,10 +26,14 @@ public class BookingSagaOrchestrator
     private readonly NotificationPublisher _notifications;
     private readonly ILogger<BookingSagaOrchestrator> _logger;
 
+    private const int MaxImmediateRetries = 3;
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
+
     public BookingSagaOrchestrator(
         IAppointmentRepository appointmentRepo,
         IBookingSagaRepository sagaRepo,
         IBookingSagaLogRepository logRepo,
+        ICompensationOutboxRepository outboxRepo,
         PatientServiceClient patientClient,
         DoctorScheduleServiceClient scheduleClient,
         PaymentServiceClient paymentClient,
@@ -38,6 +44,7 @@ public class BookingSagaOrchestrator
         _appointmentRepo = appointmentRepo;
         _sagaRepo = sagaRepo;
         _logRepo = logRepo;
+        _outboxRepo = outboxRepo;
         _patientClient = patientClient;
         _scheduleClient = scheduleClient;
         _paymentClient = paymentClient;
@@ -53,7 +60,6 @@ public class BookingSagaOrchestrator
         decimal paymentAmount, string paymentMethod, string currency,
         string? notes, CancellationToken ct)
     {
-        // Initialize saga state
         var saga = BookingSaga.Create(patientId, providerId, scheduleId, slotId, paymentAmount, paymentMethod, notes);
         await _sagaRepo.AddAsync(saga, ct);
         await _sagaRepo.SaveChangesAsync(ct);
@@ -62,26 +68,18 @@ public class BookingSagaOrchestrator
 
         try
         {
-            // Step 1: Validate patient + create appointment
             await StepCreateAppointment(saga, patientId, providerId, scheduledTime, durationMinutes, notes, ct);
-
-            // Step 2: Reserve slot
             await StepReserveSlot(saga, ct);
-
-            // Step 3: Create + process payment
-            await StepProcessPayment(saga, paymentAmount, currency, paymentMethod, ct);
-
-            // Step 4: Confirm slot (link to appointment)
+            await StepCreatePayment(saga, paymentAmount, currency, paymentMethod, ct);
             await StepConfirmSlot(saga, ct);
 
-            // Step 5: Mark completed + send notification
-            saga.MarkCompleted();
+            // Saga now waits for external payment confirmation (webhook/callback)
+            saga.MarkAwaitingPayment();
             await _sagaRepo.SaveChangesAsync(ct);
-            await LogStepAsync(saga, "SlotConfirmed", "Completed", "Booking saga completed successfully", ct: ct);
+            await LogStepAsync(saga, "SlotConfirmed", "AwaitingPayment", "Booking confirmed, awaiting payment", ct: ct);
 
-            await PublishNotification(saga, scheduledTime, durationMinutes, ct);
-
-            _logger.LogInformation("Saga {SagaId} completed successfully. Appointment {AppointmentId}", saga.Id, saga.AppointmentId);
+            _logger.LogInformation("Saga {SagaId} awaiting payment. Appointment {AppointmentId}, Payment {PaymentId}",
+                saga.Id, saga.AppointmentId, saga.PaymentId);
         }
         catch (SagaStepException ex)
         {
@@ -97,7 +95,7 @@ public class BookingSagaOrchestrator
         return saga;
     }
 
-    // ── Individual Steps ──────────────────────────────────────────────────
+    // ── Steps ─────────────────────────────────────────────────────────────
 
     private async Task StepCreateAppointment(
         BookingSaga saga, Guid patientId, string providerId,
@@ -105,7 +103,7 @@ public class BookingSagaOrchestrator
     {
         var patient = await _patientClient.GetPatientAsync(patientId, ct);
         if (patient is null)
-            throw new SagaStepException("Patient not found or PatientService unavailable.");
+            throw new SagaStepException($"Patient '{patientId}' not found or PatientService unavailable.");
 
         var appointment = Appointment.Create(patientId, providerId, scheduledTime, durationMinutes, notes);
         await _appointmentRepo.AddAsync(appointment, ct);
@@ -113,6 +111,7 @@ public class BookingSagaOrchestrator
 
         saga.MarkAppointmentCreated(appointment.Id);
         await _sagaRepo.SaveChangesAsync(ct);
+        _logger.LogInformation("Saga {SagaId} step AppointmentCreated: Appointment {AppointmentId} for patient {PatientId}", saga.Id, appointment.Id, patientId);
         await LogStepAsync(saga, "Started", "AppointmentCreated", $"Appointment {appointment.Id} created", ct: ct);
     }
 
@@ -124,39 +123,37 @@ public class BookingSagaOrchestrator
 
         saga.MarkSlotReserved();
         await _sagaRepo.SaveChangesAsync(ct);
+        _logger.LogInformation("Saga {SagaId} step SlotReserved: Slot {SlotId} on schedule {ScheduleId}", saga.Id, saga.SlotId, saga.ScheduleId);
         await LogStepAsync(saga, "AppointmentCreated", "SlotReserved", $"Slot {saga.SlotId} reserved", ct: ct);
     }
 
-    private async Task StepProcessPayment(
+    /// <summary>Creates a Pending payment — does NOT process it. Payment confirmation comes async via webhook.</summary>
+    private async Task StepCreatePayment(
         BookingSaga saga, decimal amount, string currency, string method, CancellationToken ct)
     {
         var payment = await _paymentClient.CreatePaymentAsync(
             saga.AppointmentId!.Value, saga.PatientId, amount, currency, method,
             $"Appointment booking #{saga.AppointmentId}", ct);
-
         if (payment is null)
             throw new SagaStepException("Failed to create payment — PaymentService unavailable.");
 
-        var processed = await _paymentClient.ProcessPaymentAsync(payment.Id, ct);
-        if (processed is null || processed.Status != "Completed")
-            throw new SagaStepException($"Payment processing failed for payment {payment.Id}.");
-
-        saga.MarkPaymentProcessed(payment.Id);
+        saga.MarkPaymentCreated(payment.Id);
         await _sagaRepo.SaveChangesAsync(ct);
-        await LogStepAsync(saga, "SlotReserved", "PaymentProcessed", $"Payment {payment.Id} processed", ct: ct);
+        _logger.LogInformation("Saga {SagaId} step PaymentCreated: Payment {PaymentId} amount {Amount} (Pending)", saga.Id, payment.Id, amount);
+        await LogStepAsync(saga, "SlotReserved", "PaymentCreated", $"Payment {payment.Id} created (Pending)", ct: ct);
     }
 
     private async Task StepConfirmSlot(BookingSaga saga, CancellationToken ct)
     {
         var confirmed = await _scheduleClient.ConfirmSlotAsync(
             saga.ScheduleId, saga.SlotId, saga.AppointmentId!.Value, ct);
-
         if (confirmed is null)
             throw new SagaStepException("Failed to confirm slot — DoctorScheduleService unavailable.");
 
         saga.MarkSlotConfirmed();
         await _sagaRepo.SaveChangesAsync(ct);
-        await LogStepAsync(saga, "PaymentProcessed", "SlotConfirmed", "Slot confirmed with appointment", ct: ct);
+        _logger.LogInformation("Saga {SagaId} step SlotConfirmed: Slot {SlotId} confirmed for appointment {AppointmentId}", saga.Id, saga.SlotId, saga.AppointmentId);
+        await LogStepAsync(saga, "PaymentCreated", "SlotConfirmed", "Slot confirmed with appointment", ct: ct);
     }
 
     private async Task PublishNotification(
@@ -166,67 +163,154 @@ public class BookingSagaOrchestrator
         {
             AppointmentId = saga.AppointmentId!.Value,
             PatientId = saga.PatientId,
-            ProviderId = saga.ProviderId,
+            DoctorId = saga.DoctorId,
             ScheduledTime = scheduledTime,
             DurationMinutes = durationMinutes
         };
-
-        // Kafka — audit/trace log
         await _events.PublishAsync(@event, ct);
-
-        // RabbitMQ — trigger SMS/email via NotificationService
         await _notifications.SendNotificationAsync(@event, ct);
     }
 
-    // ── Compensation ──────────────────────────────────────────────────────
+    // ── Payment confirmation (called when payment is confirmed externally) ──
+
+    /// <summary>Complete the saga after external payment confirmation.</summary>
+    public async Task CompleteAfterPaymentAsync(Guid sagaId, CancellationToken ct)
+    {
+        var saga = await _sagaRepo.GetByIdAsync(sagaId, ct)
+            ?? throw new SagaStepException($"Saga '{sagaId}' not found.");
+
+        if (saga.CurrentStep != BookingSagaStep.AwaitingPayment)
+        {
+            _logger.LogWarning("Saga {SagaId} not in AwaitingPayment state (current: {Step}), skipping", sagaId, saga.CurrentStep);
+            return;
+        }
+
+        saga.MarkCompleted();
+        await _sagaRepo.SaveChangesAsync(ct);
+        await LogStepAsync(saga, "AwaitingPayment", "Completed", "Payment confirmed, booking complete", ct: ct);
+
+        // Get appointment to retrieve scheduled time for notification
+        var appointment = await _appointmentRepo.GetByIdAsync(saga.AppointmentId!.Value, ct);
+        if (appointment is not null)
+        {
+            await PublishNotification(saga, appointment.ScheduledTime, appointment.DurationMinutes, ct);
+        }
+
+        _logger.LogInformation("Saga {SagaId} completed after payment confirmation. Appointment {AppointmentId}",
+            saga.Id, saga.AppointmentId);
+    }
+
+    /// <summary>Cancel booking if payment times out.</summary>
+    public async Task CancelExpiredAsync(Guid sagaId, CancellationToken ct)
+    {
+        var saga = await _sagaRepo.GetByIdAsync(sagaId, ct);
+        if (saga is null || saga.CurrentStep != BookingSagaStep.AwaitingPayment) return;
+
+        _logger.LogWarning("Saga {SagaId} payment timed out, compensating", sagaId);
+        saga.MarkFailed("Payment timed out");
+        await _sagaRepo.SaveChangesAsync(ct);
+        await LogStepAsync(saga, "AwaitingPayment", "Failed", "Payment timed out", ct: ct);
+
+        await CompensateAsync(saga, ct);
+    }
+
+    // ── Compensation with retry + outbox fallback ─────────────────────────
 
     private async Task CompensateAsync(BookingSaga saga, CancellationToken ct)
     {
         saga.MarkCompensating();
         await _sagaRepo.SaveChangesAsync(ct);
+        _logger.LogInformation("Saga {SagaId} compensating", saga.Id);
 
-        _logger.LogInformation("Saga {SagaId} compensating from step {Step}", saga.Id, saga.CurrentStep);
-
-        // Compensate in reverse order based on what was completed
+        // Refund payment
         if (saga.PaymentId.HasValue)
         {
-            _logger.LogInformation("Saga {SagaId} → refunding payment {PaymentId}", saga.Id, saga.PaymentId);
-            await _paymentClient.RefundPaymentAsync(saga.PaymentId.Value, ct);
-            await LogStepAsync(saga, "Compensating", "Compensating", $"Refunded payment {saga.PaymentId}", ct: ct);
+            var refunded = await RetryWithFallback(
+                saga, "RefundPayment",
+                () => _paymentClient.RefundPaymentAsync(saga.PaymentId.Value, ct),
+                JsonSerializer.Serialize(new { PaymentId = saga.PaymentId.Value }),
+                ct);
+
+            _logger.LogInformation("Saga {SagaId} compensation: {Result} payment {PaymentId}",
+                saga.Id, refunded ? "Refunded" : "Queued refund for", saga.PaymentId);
+            await LogStepAsync(saga, "Compensating", "Compensating",
+                refunded ? $"Refunded payment {saga.PaymentId}" : $"Refund payment {saga.PaymentId} queued for retry",
+                ct: ct);
         }
 
-        if (saga.CurrentStep >= BookingSagaStep.Failed && saga.SlotId != Guid.Empty)
-        {
-            // Only release if slot was reserved (step >= SlotReserved was reached before failure)
-            var wasSlotReserved = saga.AppointmentId.HasValue; // SlotReserved comes after AppointmentCreated
-            if (wasSlotReserved)
-            {
-                _logger.LogInformation("Saga {SagaId} → releasing slot {SlotId}", saga.Id, saga.SlotId);
-                await _scheduleClient.ReleaseSlotAsync(saga.ScheduleId, saga.SlotId, ct);
-                await LogStepAsync(saga, "Compensating", "Compensating", $"Released slot {saga.SlotId}", ct: ct);
-            }
-        }
-
+        // Release slot
         if (saga.AppointmentId.HasValue)
         {
-            _logger.LogInformation("Saga {SagaId} → cancelling appointment {AppointmentId}", saga.Id, saga.AppointmentId);
+            var released = await RetryWithFallback(
+                saga, "ReleaseSlot",
+                () => _scheduleClient.ReleaseSlotAsync(saga.ScheduleId, saga.SlotId, ct),
+                JsonSerializer.Serialize(new { saga.ScheduleId, saga.SlotId }),
+                ct);
+
+            _logger.LogInformation("Saga {SagaId} compensation: {Result} slot {SlotId}",
+                saga.Id, released ? "Released" : "Queued release for", saga.SlotId);
+            await LogStepAsync(saga, "Compensating", "Compensating",
+                released ? $"Released slot {saga.SlotId}" : $"Release slot {saga.SlotId} queued for retry",
+                ct: ct);
+        }
+
+        // Cancel appointment (local — always succeeds)
+        if (saga.AppointmentId.HasValue)
+        {
             var appointment = await _appointmentRepo.GetByIdAsync(saga.AppointmentId.Value, ct);
             if (appointment is not null)
             {
                 appointment.Cancel();
                 await _appointmentRepo.SaveChangesAsync(ct);
-                await LogStepAsync(saga, "Compensating", "Compensating", $"Cancelled appointment {saga.AppointmentId}", ct: ct);
+                _logger.LogInformation("Saga {SagaId} compensation: Cancelled appointment {AppointmentId}", saga.Id, saga.AppointmentId);
+                await LogStepAsync(saga, "Compensating", "Compensating",
+                    $"Cancelled appointment {saga.AppointmentId}", ct: ct);
             }
         }
 
         saga.MarkCompensated();
         await _sagaRepo.SaveChangesAsync(ct);
-        await LogStepAsync(saga, "Compensating", "Compensated", "All compensations applied", ct: ct);
-
+        await LogStepAsync(saga, "Compensating", "Compensated", "Compensation complete", ct: ct);
         _logger.LogInformation("Saga {SagaId} compensation complete", saga.Id);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
+    /// <summary>
+    /// Try action with immediate retries. If all retries fail, save to outbox
+    /// for background worker to pick up later.
+    /// </summary>
+    private async Task<bool> RetryWithFallback(
+        BookingSaga saga, string actionType, Func<Task<bool>> action,
+        string payload, CancellationToken ct)
+    {
+        for (var attempt = 1; attempt <= MaxImmediateRetries; attempt++)
+        {
+            try
+            {
+                var success = await action();
+                if (success) return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Saga {SagaId} {Action} attempt {Attempt}/{Max} failed: {Error}",
+                    saga.Id, actionType, attempt, MaxImmediateRetries, ex.Message);
+            }
+
+            if (attempt < MaxImmediateRetries)
+                await Task.Delay(RetryDelay * attempt, ct);
+        }
+
+        // All immediate retries failed — save to outbox for background retry
+        _logger.LogWarning("Saga {SagaId} {Action} failed after {Max} retries — saving to outbox",
+            saga.Id, actionType, MaxImmediateRetries);
+
+        var outboxItem = CompensationOutbox.Create(saga.Id, actionType, payload);
+        await _outboxRepo.AddAsync(outboxItem, ct);
+        await _outboxRepo.SaveChangesAsync(ct);
+
+        return false;
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
 
     private async Task LogStepAsync(
         BookingSaga saga, string fromStep, string toStep,

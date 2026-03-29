@@ -39,8 +39,8 @@ public class Payment
             Method = method,
             Status = PaymentStatus.Pending,
             Description = description,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
         };
     }
 
@@ -50,7 +50,7 @@ public class Payment
         if (Status != PaymentStatus.Pending)
             throw new DomainException($"Cannot process payment in status '{Status}'.");
         Status = PaymentStatus.Processing;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
     }
 
     /// <summary>Mark payment as completed with an external transaction reference.</summary>
@@ -60,15 +60,15 @@ public class Payment
             throw new DomainException($"Cannot complete payment in status '{Status}'.");
         Status = PaymentStatus.Completed;
         TransactionId = transactionId;
-        PaidAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        PaidAt = DateTime.Now;
+        UpdatedAt = DateTime.Now;
     }
 
     /// <summary>Mark payment as failed.</summary>
     public void Fail()
     {
         Status = PaymentStatus.Failed;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
     }
 
     /// <summary>Refund a completed payment.</summary>
@@ -77,6 +77,6 @@ public class Payment
         if (Status != PaymentStatus.Completed)
             throw new DomainException($"Cannot refund payment in status '{Status}'. Only Completed payments can be refunded.");
         Status = PaymentStatus.Refunded;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
     }
 }

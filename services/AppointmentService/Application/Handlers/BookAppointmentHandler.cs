@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AppointmentService.Application.Commands;
 using AppointmentService.Application.Saga;
 using MediatR;
@@ -14,7 +15,7 @@ public class BookAppointmentHandler : IRequestHandler<BookAppointmentCommand, Bo
     public async Task<BookAppointmentResult> Handle(BookAppointmentCommand cmd, CancellationToken ct)
     {
         var saga = await _orchestrator.ExecuteAsync(
-            cmd.PatientId, cmd.ProviderId,
+            cmd.PatientId, cmd.DoctorId,
             cmd.ScheduleId, cmd.SlotId,
             cmd.ScheduledTime, cmd.DurationMinutes,
             cmd.PaymentAmount, cmd.PaymentMethod, cmd.Currency,
@@ -25,6 +26,7 @@ public class BookAppointmentHandler : IRequestHandler<BookAppointmentCommand, Bo
             saga.AppointmentId,
             saga.PaymentId,
             saga.CurrentStep.ToString(),
-            saga.FailureReason);
+            saga.FailureReason,
+            Activity.Current?.TraceId.ToString());
     }
 }

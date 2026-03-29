@@ -9,7 +9,7 @@ public class BookingSaga
 
     // Input data
     public Guid PatientId { get; private set; }
-    public string ProviderId { get; private set; } = string.Empty;
+    public string DoctorId { get; private set; } = string.Empty;
     public Guid ScheduleId { get; private set; }
     public Guid SlotId { get; private set; }
     public decimal PaymentAmount { get; private set; }
@@ -37,15 +37,15 @@ public class BookingSaga
         {
             Id = Guid.NewGuid(),
             PatientId = patientId,
-            ProviderId = providerId,
+            DoctorId = providerId,
             ScheduleId = scheduleId,
             SlotId = slotId,
             PaymentAmount = paymentAmount,
             PaymentMethod = paymentMethod,
             Notes = notes,
             CurrentStep = BookingSagaStep.Started,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
         };
     }
 
@@ -57,37 +57,38 @@ public class BookingSaga
 
     public void MarkSlotReserved() => AdvanceTo(BookingSagaStep.SlotReserved);
 
-    public void MarkPaymentProcessed(Guid paymentId)
+    public void MarkPaymentCreated(Guid paymentId)
     {
         PaymentId = paymentId;
-        AdvanceTo(BookingSagaStep.PaymentProcessed);
+        AdvanceTo(BookingSagaStep.PaymentCreated);
     }
 
     public void MarkSlotConfirmed() => AdvanceTo(BookingSagaStep.SlotConfirmed);
+    public void MarkAwaitingPayment() => AdvanceTo(BookingSagaStep.AwaitingPayment);
     public void MarkCompleted() => AdvanceTo(BookingSagaStep.Completed);
 
     public void MarkFailed(string reason)
     {
         FailureReason = reason;
         CurrentStep = BookingSagaStep.Failed;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
     }
 
     public void MarkCompensating()
     {
         CurrentStep = BookingSagaStep.Compensating;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
     }
 
     public void MarkCompensated()
     {
         CurrentStep = BookingSagaStep.Compensated;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
     }
 
     private void AdvanceTo(BookingSagaStep step)
     {
         CurrentStep = step;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.Now;
     }
 }

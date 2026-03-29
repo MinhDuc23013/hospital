@@ -21,15 +21,20 @@ public class DoctorScheduleServiceClient
     {
         try
         {
-            var response = await _http.PostAsJsonAsync(
-                $"api/doctor-schedules/{scheduleId}/slots/{slotId}/reserve",
-                new { patientId }, ct);
-            response.EnsureSuccessStatusCode();
+            var url = $"api/doctor-schedules/{scheduleId}/slots/{slotId}/reserve";
+            _logger.LogInformation("ReserveSlot calling {BaseAddress}{Url}", _http.BaseAddress, url);
+            var response = await _http.PostAsJsonAsync(url, new { patientId }, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("ReserveSlot failed {StatusCode}: {Body}", response.StatusCode, body);
+                return null;
+            }
             return await response.Content.ReadFromJsonAsync<TimeSlotDto>(ct);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to reserve slot {SlotId} on schedule {ScheduleId}", slotId, scheduleId);
+            _logger.LogError(ex, "ReserveSlot exception for slot {SlotId} on schedule {ScheduleId}", slotId, scheduleId);
             return null;
         }
     }
