@@ -65,6 +65,14 @@ public class AppointmentsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Mark appointment as completed after consultation (doctor action).</summary>
+    [HttpPost("{id:guid}/complete")]
+    public async Task<IActionResult> Complete(Guid id, CancellationToken ct)
+    {
+        await _mediator.Send(new CompleteAppointmentCommand(id), ct);
+        return Ok(new { success = true, message = "Appointment completed." });
+    }
+
     /// <summary>Mark appointment as no-show (doctor/admin action, no refund).</summary>
     [HttpPost("{id:guid}/no-show")]
     public async Task<IActionResult> NoShow(Guid id, CancellationToken ct)

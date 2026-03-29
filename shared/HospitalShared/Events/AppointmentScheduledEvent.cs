@@ -8,5 +8,6 @@ public class AppointmentScheduledEvent
     public string DoctorId { get; set; } = string.Empty;
     public DateTime ScheduledTime { get; set; }
     public int DurationMinutes { get; set; }
+    public string Status { get; set; } = "Scheduled";
     public DateTime Timestamp { get; set; } = DateTime.Now;
 }

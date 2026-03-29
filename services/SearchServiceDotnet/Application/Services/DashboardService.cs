@@ -31,11 +31,11 @@ public class DashboardService
     /// </summary>
     public async Task<DashboardMetrics> GetDashboardAsync(CancellationToken ct = default)
     {
-        var now        = DateTime.UtcNow;
+        var now        = DateTime.Now;
         var todayStart = now.Date;
         var todayEnd   = todayStart.AddDays(1);
         var weekStart  = todayStart.AddDays(-(int)now.DayOfWeek);
-        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthStart = new DateTime(now.Year, now.Month, 1);
 
         // Run all four queries concurrently
         var t1 = CountTodayAppointmentsAsync(todayStart, todayEnd, ct);
