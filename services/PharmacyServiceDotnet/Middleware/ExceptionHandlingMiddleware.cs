@@ -45,7 +45,8 @@ public class ExceptionHandlingMiddleware
     {
         ctx.Response.StatusCode = status;
         ctx.Response.ContentType = "application/json";
-        var body = JsonSerializer.Serialize(new { error = new { message, code } });
+        var traceId = System.Diagnostics.Activity.Current?.Id ?? ctx.TraceIdentifier;
+        var body = JsonSerializer.Serialize(new { error = new { message, code, traceId } });
         return ctx.Response.WriteAsync(body);
     }
 }

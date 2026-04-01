@@ -1,0 +1,152 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: grafana-default-email
+    receivers:
+      - uid: grafana-default-email
+        type: email
+        settings:
+          addresses: admin@hospital.local
+
+policies:
+  - orgId: 1
+    receiver: grafana-default-email
+    group_by: ['grafana_folder', 'alertname']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+
+groups:
+  - orgId: 1
+    name: Pharmacy Service Alerts
+    folder: Hospital HRM
+    interval: 1m
+    rules:
+      - uid: pharmacy-high-latency
+        title: "Pharmacy Service - High Latency (p95 > 2s)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="pharmacy-service"}[5m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [2]
+        for: 2m
+        labels:
+          severity: warning
+          service: pharmacy
+        annotations:
+          summary: "Pharmacy Service p95 latency is above 2 seconds"
+
+      - uid: pharmacy-high-error-rate
+        title: "Pharmacy Service - High Error Rate (> 5%)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(http_request_duration_seconds_count{job="pharmacy-service",code=~"5.."}[5m])) / sum(rate(http_request_duration_seconds_count{job="pharmacy-service"}[5m])) * 100
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [5]
+        for: 2m
+        labels:
+          severity: critical
+          service: pharmacy
+        annotations:
+          summary: "Pharmacy Service error rate is above 5%"
+
+      - uid: pharmacy-high-memory
+        title: "Pharmacy Service - High Memory (> 500MB)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: process_working_set_bytes{job="pharmacy-service"} / 1024 / 1024
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [500]
+        for: 5m
+        labels:
+          severity: warning
+          service: pharmacy
+        annotations:
+          summary: "Pharmacy Service memory usage is above 500MB"
+
+      - uid: pharmacy-service-down
+        title: "Pharmacy Service - Down"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: up{job="pharmacy-service"}
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 1m
+        labels:
+          severity: critical
+          service: pharmacy
+        annotations:
+          summary: "Pharmacy Service is down — Prometheus cannot scrape metrics"

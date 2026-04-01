@@ -394,6 +394,7 @@ services:
       - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
       - Kafka__BootstrapServers=kafka:9092
       - Seq__Url=http://seq:5341
+      - Services__PaymentService=http://payment-service:5008
     depends_on:
       postgres:
         condition: service_healthy

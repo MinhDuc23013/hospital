@@ -32,7 +32,8 @@ public class DispensePrescriptionHandler : IRequestHandler<DispensePrescriptionC
         prescription.Dispense();
 
         // Decrement stock for each item and publish low-stock events if needed
-        var items = System.Text.Json.JsonSerializer.Deserialize<List<PrescriptionItem>>(prescription.Items) ?? [];
+        var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var items = System.Text.Json.JsonSerializer.Deserialize<List<PrescriptionItem>>(prescription.Items, jsonOpts) ?? [];
         foreach (var item in items)
         {
             var drug = await _drugRepo.GetByIdAsync(item.DrugId, ct);

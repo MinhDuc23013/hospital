@@ -44,4 +44,14 @@ public class Prescription
         Status = PrescriptionStatus.Dispensed;
         UpdatedAt = DateTime.Now;
     }
+
+    /// <summary>Cancels the prescription (only from Pending status).</summary>
+    public void Cancel()
+    {
+        if (Status != PrescriptionStatus.Pending)
+            throw new DomainException($"Cannot cancel a prescription with status '{Status}'.");
+
+        Status = PrescriptionStatus.Cancelled;
+        UpdatedAt = DateTime.Now;
+    }
 }

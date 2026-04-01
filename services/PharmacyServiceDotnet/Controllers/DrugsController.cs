@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using PharmacyServiceDotnet.Application;
 using PharmacyServiceDotnet.Application.Commands;
 using PharmacyServiceDotnet.Application.Queries;
+using PharmacyServiceDotnet.Domain.Exceptions;
 
 namespace PharmacyServiceDotnet.Controllers;
 
@@ -23,8 +24,9 @@ public class DrugsController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<DrugResult>> GetById(Guid id, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetDrugQuery(id), ct);
-        return result is null ? NotFound() : Ok(result);
+        var result = await _mediator.Send(new GetDrugQuery(id), ct)
+            ?? throw new NotFoundException("Drug", id);
+        return Ok(result);
     }
 
     [HttpGet]

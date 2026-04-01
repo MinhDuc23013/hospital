@@ -13,23 +13,28 @@ public class CreatePaymentHandler : IRequestHandler<CreatePaymentCommand, Paymen
     private readonly IPaymentRepository _repo;
     private readonly IPaymentAuditLogRepository _auditRepo;
     private readonly AppointmentServiceClient _appointmentClient;
+    private readonly ILogger<CreatePaymentHandler> _logger;
 
     public CreatePaymentHandler(
         IPaymentRepository repo,
         IPaymentAuditLogRepository auditRepo,
-        AppointmentServiceClient appointmentClient)
+        AppointmentServiceClient appointmentClient,
+        ILogger<CreatePaymentHandler> logger)
     {
         _repo = repo;
         _auditRepo = auditRepo;
         _appointmentClient = appointmentClient;
+        _logger = logger;
     }
 
     public async Task<PaymentDto> Handle(CreatePaymentCommand cmd, CancellationToken ct)
     {
-        // Validate appointment exists (graceful degradation if AppointmentService unavailable)
+        // Validate appointment exists if possible (graceful degradation — payment can also be for prescriptions)
         var appointment = await _appointmentClient.GetAppointmentAsync(cmd.AppointmentId, ct);
-        if (appointment is null)
-            throw new DomainException($"Appointment {cmd.AppointmentId} not found or AppointmentService unavailable.");
+        if (appointment is not null)
+            _logger.LogInformation("Payment linked to appointment {AppointmentId}", cmd.AppointmentId);
+        else
+            _logger.LogInformation("Payment created with reference {ReferenceId} (no appointment found — may be prescription)", cmd.AppointmentId);
 
         var payment = Payment.Create(
             cmd.AppointmentId, cmd.PatientId, cmd.Amount, cmd.Currency, cmd.Method, cmd.Description);

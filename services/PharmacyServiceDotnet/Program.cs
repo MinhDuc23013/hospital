@@ -1,10 +1,15 @@
 using Confluent.Kafka;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using PharmacyServiceDotnet.Application.Saga;
+using PharmacyServiceDotnet.Application.Services;
+using PharmacyServiceDotnet.Infrastructure.HttpClients;
 using PharmacyServiceDotnet.Infrastructure.MessageBus;
 using PharmacyServiceDotnet.Infrastructure.Persistence;
 using PharmacyServiceDotnet.Infrastructure.Repositories;
+using PharmacyServiceDotnet.Infrastructure.Workers;
 using PharmacyServiceDotnet.Middleware;
+using Prometheus;
 using Serilog;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -36,11 +41,30 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
     return new ProducerBuilder<string, string>(config).Build();
 });
 
-// Repositories & services
+// Repositories
 builder.Services.AddScoped<IDrugRepository, DrugRepository>();
 builder.Services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
+builder.Services.AddScoped<IDrugBatchRepository, DrugBatchRepository>();
+builder.Services.AddScoped<IStockReservationRepository, StockReservationRepository>();
+builder.Services.AddScoped<IInventoryAuditLogRepository, InventoryAuditLogRepository>();
+builder.Services.AddScoped<IDispensingSagaRepository, DispensingSagaRepository>();
+builder.Services.AddScoped<IDispensingSagaLogRepository, DispensingSagaLogRepository>();
+
+// Application services
 builder.Services.AddScoped<EventPublisher>();
+builder.Services.AddScoped<StockReservationService>();
+builder.Services.AddScoped<DispensingSagaOrchestrator>();
+
+// PaymentService HTTP client
+builder.Services.AddHttpClient<PaymentServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008/");
+});
+
+// Background workers
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<PharmacyDbContext>>();
+builder.Services.AddHostedService<ReservationExpiryWorker>();
 
 builder.Services.AddControllers();
 
@@ -55,6 +79,9 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
+// Prometheus metrics
+app.UseHttpMetrics();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -62,4 +89,5 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+app.MapMetrics(); // /metrics endpoint for Prometheus
 app.Run();

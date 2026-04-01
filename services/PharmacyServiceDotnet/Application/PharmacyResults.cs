@@ -35,3 +35,29 @@ public record PrescriptionResult(
     DateTime CreatedAt,
     DateTime UpdatedAt
 );
+
+/// <summary>Read model for a drug batch/lot.</summary>
+public record DrugBatchResult(
+    Guid Id,
+    Guid DrugId,
+    string BatchNumber,
+    DateTime ExpiryDate,
+    int Quantity,
+    int ReservedQuantity,
+    int AvailableQuantity,
+    DateTime ReceivedDate,
+    DateTime CreatedAt
+);
+
+/// <summary>Read model for dispensing saga state.</summary>
+public record DispensingSagaResult(
+    Guid Id,
+    Guid PrescriptionId,
+    Guid PatientId,
+    string DoctorId,
+    string CurrentStep,
+    Guid? PaymentId,
+    string? FailureReason,
+    DateTime CreatedAt,
+    DateTime UpdatedAt
+);

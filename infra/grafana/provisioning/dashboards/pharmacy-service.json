@@ -1,0 +1,137 @@
+{
+  "id": null,
+  "uid": "pharmacy-service",
+  "title": "Pharmacy Service Dashboard",
+  "tags": ["hospital", "pharmacy"],
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Rate (req/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(http_request_duration_seconds_count{job=\"pharmacy-service\"}[1m])",
+          "legendFormat": "{{method}} {{code}} {{controller}}",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Response Time p95 (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"pharmacy-service\"}[5m]))",
+          "legendFormat": "p95",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{job=\"pharmacy-service\"}[5m]))",
+          "legendFormat": "p50",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      }
+    },
+    {
+      "id": 3,
+      "title": "HTTP Status Codes",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (code) (increase(http_request_duration_seconds_count{job=\"pharmacy-service\"}[5m]))",
+          "legendFormat": "{{code}}",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Error Rate (%)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 4, "x": 8, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_request_duration_seconds_count{job=\"pharmacy-service\",code=~\"5..\"}[5m])) / sum(rate(http_request_duration_seconds_count{job=\"pharmacy-service\"}[5m])) * 100",
+          "legendFormat": "Error %",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Requests by Endpoint",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (controller, action) (rate(http_request_duration_seconds_count{job=\"pharmacy-service\"}[1m]))",
+          "legendFormat": "{{controller}}/{{action}}",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Process Memory (MB)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "process_working_set_bytes{job=\"pharmacy-service\"} / 1024 / 1024",
+          "legendFormat": "Working Set",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "process_private_memory_bytes{job=\"pharmacy-service\"} / 1024 / 1024",
+          "legendFormat": "Private",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "decmbytes" }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Active Threads",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "process_num_threads{job=\"pharmacy-service\"}",
+          "legendFormat": "Threads",
+          "datasource": "Prometheus"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38
+}
