@@ -429,29 +429,28 @@ services:
   notification-service:
     build:
       context: .
-      dockerfile: services/NotificationService/Dockerfile
+      dockerfile: services/NotificationServiceDotnet/Dockerfile
     container_name: notification-service
     ports:
       - "5005:5005"
     environment:
-      - PORT=5005
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
-      - SMTP_HOST=${SMTP_HOST:-}
-      - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
-      - EMAIL_FROM=${EMAIL_FROM:-noreply@hospital.local}
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5005
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__User=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-guest}
+      - Smtp__Host=${SMTP_HOST:-}
+      - Smtp__Port=${SMTP_PORT:-587}
+      - Smtp__User=${SMTP_USER:-}
+      - Smtp__Password=${SMTP_PASSWORD:-}
+      - Smtp__From=${EMAIL_FROM:-noreply@hospital.local}
+      - Seq__Url=http://seq:5341
     depends_on:
-      redis:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:5005/health || exit 1"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5005 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5

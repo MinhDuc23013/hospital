@@ -2,6 +2,7 @@ using SearchServiceDotnet.Application.Services;
 using SearchServiceDotnet.Infrastructure.Elasticsearch;
 using SearchServiceDotnet.Infrastructure.Kafka;
 using SearchServiceDotnet.Middleware;
+using Prometheus;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,6 +42,7 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseHttpMetrics();
 
 if (app.Environment.IsDevelopment())
 {
@@ -49,4 +51,5 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+app.MapMetrics();
 app.Run();

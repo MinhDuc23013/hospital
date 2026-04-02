@@ -6,6 +6,7 @@ using PaymentService.Infrastructure.MessageBus;
 using PaymentService.Infrastructure.Persistence;
 using PaymentService.Infrastructure.Repositories;
 using PaymentService.Middleware;
+using Prometheus;
 using Serilog;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -64,6 +65,7 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseHttpMetrics();
 
 if (app.Environment.IsDevelopment())
 {
@@ -72,4 +74,5 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+app.MapMetrics();
 app.Run();

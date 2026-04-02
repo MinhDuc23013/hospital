@@ -5,6 +5,7 @@ using PatientService.Infrastructure.MessageBus;
 using PatientService.Infrastructure.Persistence;
 using PatientService.Infrastructure.Repositories;
 using PatientService.Middleware;
+using Prometheus;
 using Serilog;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -61,6 +62,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseHttpMetrics();
 
 if (app.Environment.IsDevelopment())
 {
@@ -69,4 +71,5 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+app.MapMetrics();
 app.Run();
