@@ -817,3 +817,10 @@
 {"ts":"2026-04-02T14:34:43.724Z","hook":"scout-block","tool":"Glob","dur":5,"status":"ok","exit":0,"error":""}
 {"ts":"2026-04-02T14:38:57.366Z","hook":"scout-block","tool":"Glob","dur":4,"status":"ok","exit":0,"error":""}
 {"ts":"2026-04-02T14:43:01.108Z","hook":"scout-block","tool":"Glob","dur":5,"status":"block","exit":2,"error":""}
+{"ts":"2026-04-02T15:02:09.151Z","hook":"scout-block","tool":"Bash","dur":1,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-02T15:22:05.635Z","hook":"scout-block","tool":"Glob","dur":6,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-02T15:22:05.678Z","hook":"scout-block","tool":"Glob","dur":5,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-02T15:34:06.786Z","hook":"scout-block","tool":"Bash","dur":5,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-02T15:34:10.418Z","hook":"scout-block","tool":"Bash","dur":6,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-02T15:34:17.452Z","hook":"scout-block","tool":"Bash","dur":1,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-02T15:35:09.054Z","hook":"scout-block","tool":"Bash","dur":6,"status":"ok","exit":0,"error":""}

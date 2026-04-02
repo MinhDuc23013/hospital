@@ -4,6 +4,7 @@ using SearchServiceDotnet.Infrastructure.Kafka;
 using SearchServiceDotnet.Middleware;
 using Prometheus;
 using Serilog;
+using Serilog.Sinks.Grafana.Loki;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +12,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((ctx, cfg) => cfg
     .ReadFrom.Configuration(ctx.Configuration)
     .WriteTo.Console()
-    .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341"));
+    .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
+    .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
+        labels: [new() { Key = "service", Value = "search-service" }]));
 
 // ── Elasticsearch ─────────────────────────────────────────────────────────────
 builder.Services.AddSingleton(_ => ElasticsearchClientFactory.Create(builder.Configuration));

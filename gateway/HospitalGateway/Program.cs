@@ -1,7 +1,9 @@
 using HospitalGateway.Extensions;
 using HospitalGateway.Middleware;
 using HospitalGateway.Services;
+using Prometheus;
 using Serilog;
+using Serilog.Sinks.Grafana.Loki;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,7 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((ctx, cfg) => cfg
     .ReadFrom.Configuration(ctx.Configuration)
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}")
-    .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341"));
+    .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
+    .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
+        labels: [new() { Key = "service", Value = "hospital-gateway" }]));
 
 // YARP reverse proxy — routes loaded from appsettings.json
 builder.Services.AddReverseProxy()
@@ -49,6 +53,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // Middleware pipeline order matters
+app.UseHttpMetrics();
 app.UseSerilogRequestLogging();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseAuthentication();
@@ -60,6 +65,9 @@ app.MapHealthChecks("/health").AllowAnonymous();
 
 // Gateway-owned controllers must be mapped before YARP so their routes take precedence
 app.MapControllers();
+
+// Prometheus metrics endpoint
+app.MapMetrics().AllowAnonymous();
 
 // All remaining traffic goes through YARP
 app.MapReverseProxy();

@@ -11,7 +11,7 @@ scrape_configs:
 
   - job_name: 'gateway'
     static_configs:
-      - targets: ['hospital-gateway:8000']
+      - targets: ['hospital-gateway:5084']
     metrics_path: '/metrics'
 
   - job_name: 'patient-service'
@@ -37,6 +37,16 @@ scrape_configs:
   - job_name: 'notification-service'
     static_configs:
       - targets: ['notification-service:5005']
+    metrics_path: '/metrics'
+
+  - job_name: 'doctor-schedule-service'
+    static_configs:
+      - targets: ['doctor-schedule-service:5007']
+    metrics_path: '/metrics'
+
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['payment-service:5008']
     metrics_path: '/metrics'
 
   - job_name: 'search-service'

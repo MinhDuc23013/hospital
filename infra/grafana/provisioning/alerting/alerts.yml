@@ -150,3 +150,264 @@ groups:
           service: pharmacy
         annotations:
           summary: "Pharmacy Service is down — Prometheus cannot scrape metrics"
+
+  - orgId: 1
+    name: Service Health Alerts
+    folder: Hospital HRM
+    interval: 30s
+    rules:
+      - uid: patient-service-down
+        title: "Patient Service - Down"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: up{job="patient-service"}
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 1m
+        labels:
+          severity: critical
+          service: patient
+        annotations:
+          summary: "Patient Service is down"
+
+      - uid: appointment-service-down
+        title: "Appointment Service - Down"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: up{job="appointment-service"}
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 1m
+        labels:
+          severity: critical
+          service: appointment
+        annotations:
+          summary: "Appointment Service is down"
+
+      - uid: medical-record-service-down
+        title: "Medical Record Service - Down"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: up{job="medical-record-service"}
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 1m
+        labels:
+          severity: critical
+          service: medical-record
+        annotations:
+          summary: "Medical Record Service is down"
+
+      - uid: notification-service-down
+        title: "Notification Service - Down"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: up{job="notification-service"}
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 1m
+        labels:
+          severity: critical
+          service: notification
+        annotations:
+          summary: "Notification Service is down"
+
+      - uid: doctor-schedule-service-down
+        title: "Doctor Schedule Service - Down"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: up{job="doctor-schedule-service"}
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 1m
+        labels:
+          severity: critical
+          service: doctor-schedule
+        annotations:
+          summary: "Doctor Schedule Service is down"
+
+      - uid: payment-service-down
+        title: "Payment Service - Down"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: up{job="payment-service"}
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 1m
+        labels:
+          severity: critical
+          service: payment
+        annotations:
+          summary: "Payment Service is down"
+
+      - uid: search-service-down
+        title: "Search Service - Down"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: up{job="search-service"}
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 1m
+        labels:
+          severity: critical
+          service: search
+        annotations:
+          summary: "Search Service is down"
+
+      - uid: gateway-down
+        title: "API Gateway - Down"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: up{job="gateway"}
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 1m
+        labels:
+          severity: critical
+          service: gateway
+        annotations:
+          summary: "API Gateway is down"
