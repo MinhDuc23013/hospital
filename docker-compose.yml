@@ -52,6 +52,21 @@ services:
     networks:
       - hospital-network
 
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: hospital-mongo-express
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongo:27017
+      ME_CONFIG_BASICAUTH: "false"
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: hospital-sqlserver
@@ -356,23 +371,24 @@ services:
   medical-record-service:
     build:
       context: .
-      dockerfile: services/MedicalRecordService/Dockerfile
+      dockerfile: services/MedicalRecordServiceDotnet/Dockerfile
     container_name: medical-record-service
     ports:
       - "5003:5003"
     environment:
-      - PORT=5003
-      - MONGODB_URI=${MONGODB_URI:-mongodb://mongo:27017/hospital}
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5003
+      - MongoDB__ConnectionString=${MONGODB_URI:-mongodb://mongo:27017}
+      - MongoDB__DatabaseName=hospital
+      - Kafka__BootstrapServers=kafka:9092
+      - Seq__Url=http://seq:5341
     depends_on:
       mongo:
         condition: service_healthy
-      rabbitmq:
+      kafka:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:5003/health || exit 1"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5003 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
