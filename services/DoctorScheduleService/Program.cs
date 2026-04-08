@@ -1,4 +1,5 @@
 using Confluent.Kafka;
+using DoctorScheduleService.Infrastructure.HttpClients;
 using DoctorScheduleService.Infrastructure.MessageBus;
 using DoctorScheduleService.Infrastructure.Persistence;
 using DoctorScheduleService.Infrastructure.Repositories;
@@ -38,6 +39,14 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
     var config = new ProducerConfig { BootstrapServers = kafkaBootstrap, MessageTimeoutMs = 15000 };
     Log.Information("Kafka config: bootstrap={Bootstrap}", kafkaBootstrap);
     return new ProducerBuilder<string, string>(config).Build();
+});
+
+// Auth Service HTTP client
+builder.Services.AddHttpClient<AuthServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Services:AuthService"] ?? "http://auth-service:5009");
+    client.Timeout = TimeSpan.FromSeconds(10);
 });
 
 // Repositories & services

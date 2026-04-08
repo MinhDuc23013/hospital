@@ -39,6 +39,11 @@ scrape_configs:
       - targets: ['notification-service:5005']
     metrics_path: '/metrics'
 
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:5009']
+    metrics_path: '/metrics'
+
   - job_name: 'doctor-schedule-service'
     static_configs:
       - targets: ['doctor-schedule-service:5007']

@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedicalRecordServiceDotnet"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotificationServiceDotnet", "services\NotificationServiceDotnet\NotificationServiceDotnet.csproj", "{BED25C9C-0BDC-4968-8E51-CA49FFD1DFB9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthServiceDotnet", "services\AuthServiceDotnet\AuthServiceDotnet.csproj", "{5C8BC329-119B-4BBA-B58C-E360402811C9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -159,6 +161,18 @@ Global
 		{BED25C9C-0BDC-4968-8E51-CA49FFD1DFB9}.Release|x64.Build.0 = Release|Any CPU
 		{BED25C9C-0BDC-4968-8E51-CA49FFD1DFB9}.Release|x86.ActiveCfg = Release|Any CPU
 		{BED25C9C-0BDC-4968-8E51-CA49FFD1DFB9}.Release|x86.Build.0 = Release|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Debug|x64.Build.0 = Debug|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Debug|x86.Build.0 = Debug|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Release|x64.ActiveCfg = Release|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Release|x64.Build.0 = Release|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Release|x86.ActiveCfg = Release|Any CPU
+		{5C8BC329-119B-4BBA-B58C-E360402811C9}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -174,6 +188,7 @@ Global
 		{6D5B1A69-DDF9-4573-A923-C39E573ECCF7} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
 		{DFD5293B-64B4-4D38-A554-DA6E010B2895} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
 		{BED25C9C-0BDC-4968-8E51-CA49FFD1DFB9} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
+		{5C8BC329-119B-4BBA-B58C-E360402811C9} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D2C75654-E569-4080-A9CF-3B6B4272E2DC}

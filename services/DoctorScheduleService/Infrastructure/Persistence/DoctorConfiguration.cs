@@ -15,6 +15,8 @@ public class DoctorConfiguration : IEntityTypeConfiguration<Doctor>
         builder.Property(d => d.Phone).HasMaxLength(20);
         builder.Property(d => d.Email).HasMaxLength(200);
         builder.Property(d => d.CreatedAt).HasDefaultValueSql("NOW()");
+        builder.Property(d => d.KeycloakUserId).HasMaxLength(100);
+        builder.HasIndex(d => d.KeycloakUserId).IsUnique().HasFilter("\"KeycloakUserId\" IS NOT NULL");
         builder.HasIndex(d => d.Specialty);
         builder.HasIndex(d => d.IsActive);
     }

@@ -4,6 +4,7 @@ namespace DoctorScheduleService.Domain.Entities;
 public class Doctor
 {
     public Guid Id { get; private set; }
+    public string? KeycloakUserId { get; private set; }
     public string FullName { get; private set; } = string.Empty;
     public string Specialty { get; private set; } = string.Empty;
     public string? Phone { get; private set; }
@@ -14,7 +15,13 @@ public class Doctor
 
     private Doctor() { } // EF Core
 
-    public static Doctor Create(string fullName, string specialty, string? phone = null, string? email = null)
+    public void LinkKeycloakUser(string keycloakUserId)
+    {
+        KeycloakUserId = keycloakUserId;
+        UpdatedAt = DateTime.Now;
+    }
+
+    public static Doctor Create(string fullName, string specialty, string? phone = null, string? email = null, string? keycloakUserId = null)
     {
         return new Doctor
         {
@@ -23,6 +30,7 @@ public class Doctor
             Specialty = specialty,
             Phone = phone,
             Email = email,
+            KeycloakUserId = keycloakUserId,
             IsActive = true,
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now

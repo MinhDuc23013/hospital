@@ -7,5 +7,6 @@ public record CreateDoctorCommand(
     string FullName,
     string Specialty,
     string? Phone,
-    string? Email
+    string? Email,
+    string? Password
 ) : IRequest<DoctorDto>;

@@ -4,6 +4,7 @@ namespace PatientService.Domain.Entities;
 public class Patient
 {
     public Guid Id { get; private set; }
+    public string? KeycloakUserId { get; private set; }
     public string Email { get; private set; } = string.Empty;
     public string FirstName { get; private set; } = string.Empty;
     public string LastName { get; private set; } = string.Empty;
@@ -15,7 +16,13 @@ public class Patient
 
     private Patient() { } // EF Core constructor
 
-    public static Patient Create(string email, string firstName, string lastName, DateTime dateOfBirth, string? phone = null)
+    public void LinkKeycloakUser(string keycloakUserId)
+    {
+        KeycloakUserId = keycloakUserId;
+        UpdatedAt = DateTime.Now;
+    }
+
+    public static Patient Create(string email, string firstName, string lastName, DateTime dateOfBirth, string? phone = null, string? keycloakUserId = null)
     {
         return new Patient
         {
@@ -25,6 +32,7 @@ public class Patient
             LastName = lastName.Trim(),
             DateOfBirth = dateOfBirth,
             PhoneNumber = phone,
+            KeycloakUserId = keycloakUserId,
             IsActive = true,
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now

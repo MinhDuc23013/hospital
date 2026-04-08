@@ -8,6 +8,7 @@ internal static class DoctorMapper
     internal static DoctorDto ToDto(Doctor d) => new()
     {
         Id = d.Id,
+        KeycloakUserId = d.KeycloakUserId,
         FullName = d.FullName,
         Specialty = d.Specialty,
         Phone = d.Phone,

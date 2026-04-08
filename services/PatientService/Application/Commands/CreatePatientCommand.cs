@@ -8,5 +8,6 @@ public record CreatePatientCommand(
     string FirstName,
     string LastName,
     DateTime DateOfBirth,
-    string? PhoneNumber
+    string? PhoneNumber,
+    string? Password
 ) : IRequest<PatientDto>;
