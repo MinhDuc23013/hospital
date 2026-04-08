@@ -1,5 +1,7 @@
+using HospitalShared.Auth;
 using HospitalShared.DTOs;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PatientService.Application.Commands;
 using PatientService.Application.Queries;
@@ -8,6 +10,7 @@ namespace PatientService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = Roles.AdminDoctorReceptionist)]
 public class PatientsController : ControllerBase
 {
     private readonly IMediator _mediator;

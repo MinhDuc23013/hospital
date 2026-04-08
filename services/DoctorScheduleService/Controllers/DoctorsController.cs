@@ -1,13 +1,16 @@
 using DoctorScheduleService.Application.Commands;
 using DoctorScheduleService.Application.Queries;
+using HospitalShared.Auth;
 using HospitalShared.DTOs;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DoctorScheduleService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = Roles.AdminOnly)]
 public class DoctorsController : ControllerBase
 {
     private readonly IMediator _mediator;

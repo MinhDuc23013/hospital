@@ -1,5 +1,6 @@
 using Confluent.Kafka;
 using FluentValidation;
+using HospitalShared.Auth;
 using Microsoft.EntityFrameworkCore;
 using PatientService.Infrastructure.HttpClients;
 using PatientService.Infrastructure.MessageBus;
@@ -55,6 +56,7 @@ builder.Services.AddScoped<EventPublisher>();
 builder.Services.AddSingleton<NotificationPublisher>();
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<PatientService.Infrastructure.Persistence.PatientDbContext>>();
 
+builder.Services.AddKeycloakAuth(builder.Configuration);
 builder.Services.AddControllers();
 
 // Swagger — Development only
@@ -75,6 +77,8 @@ using (var scope = app.Services.CreateScope())
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpMetrics();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {

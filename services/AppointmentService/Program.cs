@@ -7,6 +7,7 @@ using AppointmentService.Infrastructure.Repositories;
 using AppointmentService.Middleware;
 using Confluent.Kafka;
 using FluentValidation;
+using HospitalShared.Auth;
 using Microsoft.EntityFrameworkCore;
 using Prometheus;
 using Serilog;
@@ -81,6 +82,7 @@ builder.Services.AddHostedService<CompensationRetryWorker>();
 builder.Services.AddHostedService<PaymentTimeoutWorker>();
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<AppointmentService.Infrastructure.Persistence.AppointmentDbContext>>();
 
+builder.Services.AddKeycloakAuth(builder.Configuration);
 builder.Services.AddControllers();
 
 // Swagger — Development only
@@ -94,6 +96,8 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpMetrics();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {

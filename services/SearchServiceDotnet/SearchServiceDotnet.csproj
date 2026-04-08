@@ -6,6 +6,9 @@
     <RootNamespace>SearchServiceDotnet</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\shared\HospitalShared\HospitalShared.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Elastic.Clients.Elasticsearch" Version="8.9.0" />
     <PackageReference Include="Confluent.Kafka" Version="2.3.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.1" />

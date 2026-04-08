@@ -1,5 +1,6 @@
 using AuthServiceDotnet.Infrastructure.Keycloak;
 using AuthServiceDotnet.Middleware;
+using HospitalShared.Auth;
 using Prometheus;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
@@ -19,6 +20,7 @@ builder.Services.AddHttpClient<KeycloakAdminClient>(c => c.Timeout = TimeSpan.Fr
 // MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
+builder.Services.AddKeycloakAuth(builder.Configuration);
 builder.Services.AddControllers();
 
 // Swagger
@@ -32,6 +34,8 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpMetrics();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {

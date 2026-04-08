@@ -1,14 +1,17 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Application.Queries;
 using AppointmentService.Infrastructure.Repositories;
+using HospitalShared.Auth;
 using HospitalShared.DTOs;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AppointmentService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = Roles.AdminDoctorReceptionistPatient)]
 public class AppointmentsController : ControllerBase
 {
     private readonly IMediator _mediator;

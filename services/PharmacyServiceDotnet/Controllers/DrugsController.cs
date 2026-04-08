@@ -1,4 +1,6 @@
+using HospitalShared.Auth;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PharmacyServiceDotnet.Application;
 using PharmacyServiceDotnet.Application.Commands;
@@ -9,6 +11,7 @@ namespace PharmacyServiceDotnet.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = Roles.AdminDoctorPharmacist)]
 public class DrugsController : ControllerBase
 {
     private readonly IMediator _mediator;

@@ -1,5 +1,6 @@
 using Confluent.Kafka;
 using FluentValidation;
+using HospitalShared.Auth;
 using Microsoft.EntityFrameworkCore;
 using PharmacyServiceDotnet.Application.Saga;
 using PharmacyServiceDotnet.Application.Services;
@@ -69,6 +70,7 @@ builder.Services.AddHttpClient<PaymentServiceClient>(client =>
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<PharmacyDbContext>>();
 builder.Services.AddHostedService<ReservationExpiryWorker>();
 
+builder.Services.AddKeycloakAuth(builder.Configuration);
 builder.Services.AddControllers();
 
 // Swagger
@@ -84,6 +86,8 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Prometheus metrics
 app.UseHttpMetrics();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {

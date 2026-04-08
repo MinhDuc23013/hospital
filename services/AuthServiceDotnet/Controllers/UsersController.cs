@@ -1,14 +1,15 @@
 using System.Text.Json;
 using AuthServiceDotnet.Application.DTOs;
 using AuthServiceDotnet.Infrastructure.Keycloak;
+using HospitalShared.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AuthServiceDotnet.Controllers;
 
 /// <summary>
 /// CRUD operations for Keycloak users.
-/// All endpoints require admin role except seed and change-password.
-/// Gateway handles JWT validation — this service trusts forwarded headers.
+/// All endpoints require admin role except seed (anonymous) and change-password (any authenticated user).
 /// </summary>
 [ApiController]
 [Route("api/auth/users")]
@@ -25,6 +26,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Seed the first admin account. Anonymous — only works once.</summary>
     [HttpPost("/api/auth/seed")]
+    [AllowAnonymous]
     public async Task<IActionResult> SeedAdmin([FromBody] CreateUserRequest request, CancellationToken ct)
     {
         var existing = await _keycloak.FindUserByEmailAsync(request.Email, ct);
@@ -40,6 +42,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Create a new user with specified role.</summary>
     [HttpPost]
+    [Authorize(Roles = Roles.AdminOnly)]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request, CancellationToken ct)
     {
         var existing = await _keycloak.FindUserByEmailAsync(request.Email, ct);
@@ -62,6 +65,7 @@ public class UsersController : ControllerBase
 
     /// <summary>List users with optional search and pagination.</summary>
     [HttpGet]
+    [Authorize(Roles = Roles.AdminOnly)]
     public async Task<IActionResult> ListUsers(
         [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
@@ -82,6 +86,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Get a user by Keycloak ID.</summary>
     [HttpGet("{userId}")]
+    [Authorize(Roles = Roles.AdminOnly)]
     public async Task<IActionResult> GetUser(string userId, CancellationToken ct)
     {
         var user = await _keycloak.GetUserByIdAsync(userId, ct);
@@ -103,6 +108,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Update user details.</summary>
     [HttpPut("{userId}")]
+    [Authorize(Roles = Roles.AdminOnly)]
     public async Task<IActionResult> UpdateUser(string userId, [FromBody] UpdateUserRequest request, CancellationToken ct)
     {
         var user = await _keycloak.GetUserByIdAsync(userId, ct);
@@ -114,6 +120,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Delete a user.</summary>
     [HttpDelete("{userId}")]
+    [Authorize(Roles = Roles.AdminOnly)]
     public async Task<IActionResult> DeleteUser(string userId, CancellationToken ct)
     {
         var user = await _keycloak.GetUserByIdAsync(userId, ct);
@@ -125,6 +132,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Assign a role to a user.</summary>
     [HttpPost("{userId}/roles")]
+    [Authorize(Roles = Roles.AdminOnly)]
     public async Task<IActionResult> AssignRole(string userId, [FromBody] AssignRoleRequest request, CancellationToken ct)
     {
         await _keycloak.AssignRoleAsync(userId, request.Role, ct);
@@ -133,6 +141,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Remove a role from a user.</summary>
     [HttpDelete("{userId}/roles/{roleName}")]
+    [Authorize(Roles = Roles.AdminOnly)]
     public async Task<IActionResult> RemoveRole(string userId, string roleName, CancellationToken ct)
     {
         await _keycloak.RemoveRoleAsync(userId, roleName, ct);
@@ -141,6 +150,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Reset a user's password (admin action).</summary>
     [HttpPut("{userId}/reset-password")]
+    [Authorize(Roles = Roles.AdminOnly)]
     public async Task<IActionResult> ResetPassword(string userId, [FromBody] ResetPasswordRequest request, CancellationToken ct)
     {
         var user = await _keycloak.GetUserByIdAsync(userId, ct);
@@ -150,8 +160,9 @@ public class UsersController : ControllerBase
         return Ok(new { message = "Password reset" });
     }
 
-    /// <summary>Change own password — userId from forwarded header.</summary>
+    /// <summary>Change own password — userId from forwarded header. Any authenticated user.</summary>
     [HttpPut("/api/auth/change-password")]
+    [Authorize]
     public async Task<IActionResult> ChangeOwnPassword([FromBody] ChangePasswordRequest request, CancellationToken ct)
     {
         var userId = Request.Headers["X-User-Id"].FirstOrDefault();

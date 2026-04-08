@@ -1,4 +1,6 @@
+using HospitalShared.Auth;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NotificationServiceDotnet.Application.Commands;
 
@@ -6,6 +8,7 @@ namespace NotificationServiceDotnet.Controllers;
 
 [ApiController]
 [Route("api/notifications")]
+[Authorize(Roles = Roles.AdminOnly)]
 public class NotificationsController : ControllerBase
 {
     private readonly IMediator _mediator;

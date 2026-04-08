@@ -1,3 +1,4 @@
+using HospitalShared.Auth;
 using Prometheus;
 using NotificationServiceDotnet.Infrastructure.Consumers;
 using NotificationServiceDotnet.Infrastructure.Services;
@@ -24,6 +25,7 @@ builder.Services.AddSingleton<ISmsService, HttpSmsService>();
 // RabbitMQ consumer
 builder.Services.AddHostedService<NotificationRabbitMqConsumer>();
 
+builder.Services.AddKeycloakAuth(builder.Configuration);
 builder.Services.AddControllers();
 
 // Swagger
@@ -37,6 +39,8 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpMetrics();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {

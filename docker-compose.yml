@@ -342,6 +342,7 @@ services:
       - RabbitMQ__User=${RABBITMQ_USER:-guest}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD:-guest}
       - Services__AuthService=http://auth-service:5009
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
     depends_on:
@@ -377,6 +378,7 @@ services:
       - Services__PatientService=http://patient-service:5001
       - Services__DoctorScheduleService=http://doctor-schedule-service:5007
       - Services__PaymentService=http://payment-service:5008
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
     depends_on:
@@ -409,6 +411,7 @@ services:
       - MongoDB__ConnectionString=${MONGODB_URI:-mongodb://mongo:27017}
       - MongoDB__DatabaseName=hospital
       - Kafka__BootstrapServers=kafka:9092
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
     depends_on:
@@ -438,6 +441,7 @@ services:
       - ASPNETCORE_URLS=http://+:5004
       - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
       - Kafka__BootstrapServers=kafka:9092
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
       - Services__PaymentService=http://payment-service:5008
@@ -475,6 +479,7 @@ services:
       - Smtp__User=${SMTP_USER:-}
       - Smtp__Password=${SMTP_PASSWORD:-}
       - Smtp__From=${EMAIL_FROM:-noreply@hospital.local}
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
     depends_on:
@@ -504,6 +509,7 @@ services:
       - Keycloak__Realm=hospital
       - Keycloak__AdminUser=${KEYCLOAK_ADMIN:-admin}
       - Keycloak__AdminPassword=${KEYCLOAK_ADMIN_PASSWORD:-admin_password_change_me}
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
     depends_on:
@@ -531,6 +537,7 @@ services:
       - ASPNETCORE_URLS=http://+:5006
       - Elasticsearch__Uri=http://elasticsearch:9200
       - Kafka__BootstrapServers=kafka:9092
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
       - Services__PatientService=http://patient-service:5001
@@ -565,6 +572,7 @@ services:
       - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
       - Kafka__BootstrapServers=kafka:9092
       - Services__AuthService=http://auth-service:5009
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
     depends_on:
@@ -593,6 +601,7 @@ services:
       - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
       - Kafka__BootstrapServers=kafka:9092
       - Services__AppointmentService=http://appointment-service:5002
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
     depends_on:

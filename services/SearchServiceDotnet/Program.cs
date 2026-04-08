@@ -1,3 +1,4 @@
+using HospitalShared.Auth;
 using SearchServiceDotnet.Application.Services;
 using SearchServiceDotnet.Infrastructure.Elasticsearch;
 using SearchServiceDotnet.Infrastructure.Kafka;
@@ -35,6 +36,7 @@ builder.Services.AddHttpClient<ReindexService>();
 builder.Services.AddScoped<ReindexService>();
 
 // ── MVC + Swagger ─────────────────────────────────────────────────────────────
+builder.Services.AddKeycloakAuth(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -46,6 +48,8 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpMetrics();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {

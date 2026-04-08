@@ -74,7 +74,7 @@ public class CreatePatientHandler : IRequestHandler<CreatePatientCommand, Patien
 
             return MapToDto(patient);
         }
-        catch (Exception ex) when (keycloakUserId != null)
+        catch when (keycloakUserId != null)
         {
             // Compensation: delete Keycloak user if DB save fails
             _logger.LogWarning("DB save failed, compensating Keycloak user {KeycloakUserId}", keycloakUserId);

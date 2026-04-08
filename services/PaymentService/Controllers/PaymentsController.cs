@@ -1,5 +1,7 @@
+using HospitalShared.Auth;
 using HospitalShared.DTOs;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PaymentService.Application.Commands;
 using PaymentService.Application.Queries;
@@ -10,6 +12,7 @@ namespace PaymentService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = Roles.AdminReceptionist)]
 public class PaymentsController : ControllerBase
 {
     private readonly IMediator _mediator;

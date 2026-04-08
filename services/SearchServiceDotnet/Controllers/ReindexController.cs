@@ -1,3 +1,5 @@
+using HospitalShared.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SearchServiceDotnet.Application.Services;
 
@@ -9,6 +11,7 @@ namespace SearchServiceDotnet.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/reindex")]
+[Authorize(Roles = Roles.AdminOnly)]
 public class ReindexController : ControllerBase
 {
     private readonly ReindexService _reindexService;

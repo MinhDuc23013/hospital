@@ -831,3 +831,8 @@
 {"ts":"2026-04-08T13:15:38.225Z","hook":"scout-block","tool":"Bash","dur":6,"status":"ok","exit":0,"error":""}
 {"ts":"2026-04-08T13:15:46.501Z","hook":"scout-block","tool":"Bash","dur":8,"status":"ok","exit":0,"error":""}
 {"ts":"2026-04-08T13:15:55.479Z","hook":"scout-block","tool":"Bash","dur":5,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-08T14:54:33.995Z","hook":"scout-block","tool":"Glob","dur":4,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-08T14:54:45.854Z","hook":"scout-block","tool":"Glob","dur":4,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-08T15:07:19.515Z","hook":"scout-block","tool":"Bash","dur":0,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-08T15:07:43.307Z","hook":"scout-block","tool":"Bash","dur":0,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-08T15:28:45.672Z","hook":"scout-block","tool":"Bash","dur":1,"status":"ok","exit":0,"error":""}

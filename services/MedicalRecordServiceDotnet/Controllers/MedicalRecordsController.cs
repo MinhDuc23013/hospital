@@ -1,4 +1,6 @@
+using HospitalShared.Auth;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MedicalRecordServiceDotnet.Application;
 using MedicalRecordServiceDotnet.Application.Commands;
@@ -8,6 +10,7 @@ namespace MedicalRecordServiceDotnet.Controllers;
 
 [ApiController]
 [Route("api/medical-records")]
+[Authorize(Roles = Roles.AdminDoctor)]
 public class MedicalRecordsController : ControllerBase
 {
     private readonly IMediator _mediator;

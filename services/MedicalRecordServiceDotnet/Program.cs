@@ -1,4 +1,5 @@
 using FluentValidation;
+using HospitalShared.Auth;
 using Prometheus;
 using MedicalRecordServiceDotnet.Infrastructure.Consumers;
 using MedicalRecordServiceDotnet.Infrastructure.Repositories;
@@ -34,6 +35,7 @@ builder.Services.AddSingleton<IMedicalRecordRepository, MedicalRecordRepository>
 // Kafka consumer
 builder.Services.AddHostedService<AppointmentScheduledConsumer>();
 
+builder.Services.AddKeycloakAuth(builder.Configuration);
 builder.Services.AddControllers();
 
 // Swagger
@@ -47,6 +49,8 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpMetrics();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {

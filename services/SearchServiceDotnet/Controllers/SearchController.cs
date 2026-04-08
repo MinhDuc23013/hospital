@@ -1,3 +1,5 @@
+using HospitalShared.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SearchServiceDotnet.Application.Services;
 
@@ -5,6 +7,7 @@ namespace SearchServiceDotnet.Controllers;
 
 [ApiController]
 [Route("api/search")]
+[Authorize(Roles = Roles.AdminDoctorReceptionist)]
 public class SearchController : ControllerBase
 {
     private readonly SearchService _searchService;

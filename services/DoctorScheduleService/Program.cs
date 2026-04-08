@@ -5,6 +5,7 @@ using DoctorScheduleService.Infrastructure.Persistence;
 using DoctorScheduleService.Infrastructure.Repositories;
 using DoctorScheduleService.Middleware;
 using FluentValidation;
+using HospitalShared.Auth;
 using Microsoft.EntityFrameworkCore;
 using Prometheus;
 using Serilog;
@@ -55,6 +56,7 @@ builder.Services.AddScoped<IDoctorScheduleRepository, DoctorScheduleRepository>(
 builder.Services.AddScoped<EventPublisher>();
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<DoctorScheduleService.Infrastructure.Persistence.DoctorScheduleDbContext>>();
 
+builder.Services.AddKeycloakAuth(builder.Configuration);
 builder.Services.AddControllers();
 
 // Swagger
@@ -68,6 +70,8 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpMetrics();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {

@@ -1,5 +1,6 @@
 using Confluent.Kafka;
 using FluentValidation;
+using HospitalShared.Auth;
 using Microsoft.EntityFrameworkCore;
 using PaymentService.Infrastructure.HttpClients;
 using PaymentService.Infrastructure.MessageBus;
@@ -55,6 +56,7 @@ builder.Services.AddScoped<IPaymentAuditLogRepository, PaymentAuditLogRepository
 builder.Services.AddScoped<EventPublisher>();
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<PaymentService.Infrastructure.Persistence.PaymentDbContext>>();
 
+builder.Services.AddKeycloakAuth(builder.Configuration);
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 
@@ -69,6 +71,8 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpMetrics();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
