@@ -90,6 +90,7 @@ builder.Services.AddScoped<BookingSagaOrchestrator>();
 builder.Services.AddHostedService<CompensationRetryWorker>();
 builder.Services.AddHostedService<PaymentTimeoutWorker>();
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<AppointmentService.Infrastructure.Persistence.AppointmentDbContext>>();
+builder.Services.AddHostedService<AppointmentService.Infrastructure.Consumers.PaymentCompletedConsumer>();
 
 builder.Services.AddKeycloakAuth(builder.Configuration);
 builder.Services.AddControllers();

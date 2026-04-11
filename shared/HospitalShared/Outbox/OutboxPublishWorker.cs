@@ -54,13 +54,25 @@ public class OutboxPublishWorker<TDbContext> : BackgroundService where TDbContex
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TDbContext>();
 
+        // Use explicit transaction + FOR UPDATE SKIP LOCKED to prevent
+        // multiple nodes from processing the same outbox rows.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
         var pending = await db.Set<EventOutbox>()
-            .Where(e => !e.IsSent && e.RetryCount < MaxRetries)
-            .OrderBy(e => e.CreatedAt)
-            .Take(BatchSize)
+            .FromSqlRaw("""
+                SELECT * FROM "EventOutbox"
+                WHERE "IsSent" = false AND "RetryCount" < {0}
+                ORDER BY "CreatedAt"
+                LIMIT {1}
+                FOR UPDATE SKIP LOCKED
+                """, MaxRetries, BatchSize)
             .ToListAsync(ct);
 
-        if (pending.Count == 0) return;
+        if (pending.Count == 0)
+        {
+            await tx.CommitAsync(ct);
+            return;
+        }
 
         _logger.LogInformation("OutboxPublishWorker processing {Count} pending events", pending.Count);
 
@@ -72,7 +84,7 @@ public class OutboxPublishWorker<TDbContext> : BackgroundService where TDbContex
                 cts.CancelAfter(TimeSpan.FromSeconds(10));
                 await _producer.ProduceAsync(item.Topic, new Message<string, string>
                 {
-                    Key = item.Id.ToString(),  // Use outbox ID as key for idempotent dedup
+                    Key = item.Id.ToString(),
                     Value = item.Value,
                     Headers = new Headers { { "outbox-id", System.Text.Encoding.UTF8.GetBytes(item.Id.ToString()) } }
                 }, cts.Token);
@@ -84,8 +96,13 @@ public class OutboxPublishWorker<TDbContext> : BackgroundService where TDbContex
             {
                 item.MarkFailed(ex.Message);
                 if (item.RetryCount >= MaxRetries)
-                    _logger.LogError("Outbox DEAD LETTER: {EventType} to {Topic} failed after {MaxRetries} retries. Id={Id}",
-                        item.EventType, item.Topic, MaxRetries, item.Id);
+                {
+                    var isPayment = item.Topic.Contains("payment", StringComparison.OrdinalIgnoreCase);
+                    var level = isPayment ? LogLevel.Critical : LogLevel.Error;
+                    _logger.Log(level,
+                        "Outbox DEAD LETTER{PaymentTag}: {EventType} to {Topic} failed after {MaxRetries} retries. Id={Id}, LastError={Error}",
+                        isPayment ? " [PAYMENT]" : "", item.EventType, item.Topic, MaxRetries, item.Id, item.LastError);
+                }
                 else
                     _logger.LogWarning(ex, "Outbox retry {Retry}/{Max} failed for {EventType} to {Topic}",
                         item.RetryCount, MaxRetries, item.EventType, item.Topic);
@@ -93,5 +110,6 @@ public class OutboxPublishWorker<TDbContext> : BackgroundService where TDbContex
         }
 
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
     }
 }
