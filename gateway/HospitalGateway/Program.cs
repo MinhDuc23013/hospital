@@ -1,4 +1,5 @@
 using HospitalGateway.Extensions;
+using HospitalShared.Metrics;
 using HospitalGateway.Middleware;
 using HospitalGateway.Services;
 using Prometheus;
@@ -38,8 +39,12 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new() { Title = "Hospital Gateway API", Version = "v1" });
 });
 
+// Custom Prometheus metrics (external_call_duration_seconds)
+builder.Services.AddMetricsHttpHandler();
+
 // Named HTTP client for downstream service calls — 15 s timeout suits fan-out aggregation
-builder.Services.AddHttpClient("aggregation", c => c.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHttpClient("aggregation", c => c.Timeout = TimeSpan.FromSeconds(15))
+    .AddMetricsHandler();
 
 // Booking aggregation service
 builder.Services.AddScoped<BookingAggregationService>();

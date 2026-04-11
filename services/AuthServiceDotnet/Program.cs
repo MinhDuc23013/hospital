@@ -1,6 +1,7 @@
 using AuthServiceDotnet.Infrastructure.Keycloak;
 using AuthServiceDotnet.Middleware;
 using HospitalShared.Auth;
+using HospitalShared.Metrics;
 using Prometheus;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
@@ -14,8 +15,12 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
     .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
         labels: [new() { Key = "service", Value = "auth-service" }]));
 
+// Custom Prometheus metrics (external_call_duration_seconds)
+builder.Services.AddMetricsHttpHandler();
+
 // Keycloak Admin API client
-builder.Services.AddHttpClient<KeycloakAdminClient>(c => c.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddHttpClient<KeycloakAdminClient>(c => c.Timeout = TimeSpan.FromSeconds(10))
+    .AddMetricsHandler();
 
 // MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));

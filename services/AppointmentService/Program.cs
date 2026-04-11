@@ -8,6 +8,7 @@ using AppointmentService.Middleware;
 using Confluent.Kafka;
 using FluentValidation;
 using HospitalShared.Auth;
+using HospitalShared.Metrics;
 using Microsoft.EntityFrameworkCore;
 using Prometheus;
 using Serilog;
@@ -27,7 +28,8 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
 // EF Core + PostgreSQL
 builder.Services.AddDbContext<AppointmentDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL"),
-        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null)));
+        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null))
+    .AddMetricsInterceptor());
 
 // MediatR — scans current assembly for handlers
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
@@ -44,13 +46,16 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
     return new ProducerBuilder<string, string>(config).Build();
 });
 
+// Custom Prometheus metrics (external_call_duration_seconds)
+builder.Services.AddMetricsHttpHandler();
+
 // PatientService HTTP client for patient validation
 builder.Services.AddHttpClient<PatientServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PatientService"] ?? "http://patient-service:5001");
     client.Timeout = TimeSpan.FromSeconds(5);
-});
+}).AddMetricsHandler();
 
 // DoctorScheduleService HTTP client
 builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
@@ -58,7 +63,7 @@ builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
     client.BaseAddress = new Uri(
         builder.Configuration["Services:DoctorScheduleService"] ?? "http://doctor-schedule-service:5007");
     client.Timeout = TimeSpan.FromSeconds(30);
-});
+}).AddMetricsHandler();
 
 // PaymentService HTTP client
 builder.Services.AddHttpClient<PaymentServiceClient>(client =>
@@ -66,7 +71,7 @@ builder.Services.AddHttpClient<PaymentServiceClient>(client =>
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008");
     client.Timeout = TimeSpan.FromSeconds(30);
-});
+}).AddMetricsHandler();
 
 // Repositories & services
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();

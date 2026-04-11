@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using FluentValidation;
 using HospitalShared.Auth;
+using HospitalShared.Metrics;
 using Microsoft.EntityFrameworkCore;
 using PaymentService.Infrastructure.HttpClients;
 using PaymentService.Infrastructure.MessageBus;
@@ -25,7 +26,8 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
 // EF Core + PostgreSQL
 builder.Services.AddDbContext<PaymentDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL"),
-        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null)));
+        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null))
+    .AddMetricsInterceptor());
 
 // MediatR — scans current assembly for handlers
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
@@ -42,13 +44,16 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
     return new ProducerBuilder<string, string>(config).Build();
 });
 
+// Custom Prometheus metrics (external_call_duration_seconds)
+builder.Services.AddMetricsHttpHandler();
+
 // AppointmentService HTTP client for appointment validation
 builder.Services.AddHttpClient<AppointmentServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:AppointmentService"] ?? "http://appointment-service:5002");
     client.Timeout = TimeSpan.FromSeconds(5);
-});
+}).AddMetricsHandler();
 
 // Repositories & services
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();

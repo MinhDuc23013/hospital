@@ -6,6 +6,7 @@ using DoctorScheduleService.Infrastructure.Repositories;
 using DoctorScheduleService.Middleware;
 using FluentValidation;
 using HospitalShared.Auth;
+using HospitalShared.Metrics;
 using Microsoft.EntityFrameworkCore;
 using Prometheus;
 using Serilog;
@@ -25,7 +26,8 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
 // EF Core + PostgreSQL
 builder.Services.AddDbContext<DoctorScheduleDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL"),
-        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null)));
+        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null))
+    .AddMetricsInterceptor());
 
 // MediatR — scans current assembly for handlers
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
@@ -42,13 +44,16 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
     return new ProducerBuilder<string, string>(config).Build();
 });
 
+// Custom Prometheus metrics (external_call_duration_seconds)
+builder.Services.AddMetricsHttpHandler();
+
 // Auth Service HTTP client
 builder.Services.AddHttpClient<AuthServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:AuthService"] ?? "http://auth-service:5009");
     client.Timeout = TimeSpan.FromSeconds(10);
-});
+}).AddMetricsHandler();
 
 // Repositories & services
 builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();

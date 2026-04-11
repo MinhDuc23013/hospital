@@ -11,9 +11,13 @@ public class MedicalRecordRepository : IMedicalRecordRepository
     {
         _collection = database.GetCollection<MedicalRecord>("medicalRecords");
 
-        // Ensure index on patientId
-        var indexKeys = Builders<MedicalRecord>.IndexKeys.Ascending(r => r.PatientId);
-        _collection.Indexes.CreateOne(new CreateIndexModel<MedicalRecord>(indexKeys));
+        // Ensure indexes
+        var patientIndex = Builders<MedicalRecord>.IndexKeys.Ascending(r => r.PatientId);
+        _collection.Indexes.CreateOne(new CreateIndexModel<MedicalRecord>(patientIndex));
+
+        var appointmentIndex = Builders<MedicalRecord>.IndexKeys.Ascending(r => r.AppointmentId);
+        _collection.Indexes.CreateOne(new CreateIndexModel<MedicalRecord>(
+            appointmentIndex, new CreateIndexOptions { Unique = true, Sparse = true }));
     }
 
     public async Task<MedicalRecord?> GetByIdAsync(string id, CancellationToken ct = default)
@@ -31,6 +35,9 @@ public class MedicalRecordRepository : IMedicalRecordRepository
             .ToListAsync(ct);
         return (items, (int)total);
     }
+
+    public async Task<bool> ExistsByAppointmentIdAsync(string appointmentId, CancellationToken ct = default)
+        => await _collection.Find(r => r.AppointmentId == appointmentId).AnyAsync(ct);
 
     public async Task CreateAsync(MedicalRecord record, CancellationToken ct = default)
         => await _collection.InsertOneAsync(record, cancellationToken: ct);

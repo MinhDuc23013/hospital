@@ -1,4 +1,5 @@
 using HospitalShared.Auth;
+using HospitalShared.Metrics;
 using SearchServiceDotnet.Application.Services;
 using SearchServiceDotnet.Infrastructure.Elasticsearch;
 using SearchServiceDotnet.Infrastructure.Kafka;
@@ -32,7 +33,8 @@ builder.Services.AddHostedService<SlotEventConsumer>();
 // ── Application services ──────────────────────────────────────────────────────
 builder.Services.AddScoped<SearchService>();
 builder.Services.AddScoped<DashboardService>();
-builder.Services.AddHttpClient<ReindexService>();
+builder.Services.AddMetricsHttpHandler();
+builder.Services.AddHttpClient<ReindexService>().AddMetricsHandler();
 builder.Services.AddScoped<ReindexService>();
 
 // ── MVC + Swagger ─────────────────────────────────────────────────────────────

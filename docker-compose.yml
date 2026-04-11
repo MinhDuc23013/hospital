@@ -684,3 +684,25 @@ services:
     restart: unless-stopped
     networks:
       - hospital-network
+
+  hrm-frontend:
+    build:
+      context: ./front-end
+      dockerfile: Dockerfile
+    container_name: hrm-frontend
+    ports:
+      - "${HRM_FRONTEND_PORT:-3000}:80"
+    depends_on:
+      hospital-gateway:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:80 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network

@@ -60,6 +60,14 @@ public class AppointmentScheduledConsumer : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var repo = scope.ServiceProvider.GetRequiredService<IMedicalRecordRepository>();
 
+                // Idempotency: skip if record already exists for this appointment
+                var appointmentId = evt.AppointmentId.ToString();
+                if (await repo.ExistsByAppointmentIdAsync(appointmentId, stoppingToken))
+                {
+                    _logger.LogInformation("Record already exists for appointment {AppointmentId}, skipping", evt.AppointmentId);
+                    continue;
+                }
+
                 var record = new MedicalRecord
                 {
                     PatientId = evt.PatientId.ToString(),

@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using FluentValidation;
 using HospitalShared.Auth;
+using HospitalShared.Metrics;
 using Microsoft.EntityFrameworkCore;
 using PharmacyServiceDotnet.Application.Saga;
 using PharmacyServiceDotnet.Application.Services;
@@ -28,7 +29,8 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
 // EF Core + PostgreSQL
 builder.Services.AddDbContext<PharmacyDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL"),
-        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null)));
+        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null))
+    .AddMetricsInterceptor());
 
 // MediatR — scans current assembly for handlers
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
@@ -59,12 +61,15 @@ builder.Services.AddScoped<EventPublisher>();
 builder.Services.AddScoped<StockReservationService>();
 builder.Services.AddScoped<DispensingSagaOrchestrator>();
 
+// Custom Prometheus metrics (external_call_duration_seconds)
+builder.Services.AddMetricsHttpHandler();
+
 // PaymentService HTTP client
 builder.Services.AddHttpClient<PaymentServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008/");
-});
+}).AddMetricsHandler();
 
 // Background workers
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<PharmacyDbContext>>();
