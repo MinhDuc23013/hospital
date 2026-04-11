@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using FluentValidation;
 using HospitalShared.Auth;
 using HospitalShared.Metrics;
+using HospitalShared.Tracing;
 using Microsoft.EntityFrameworkCore;
 using PatientService.Infrastructure.HttpClients;
 using PatientService.Infrastructure.MessageBus;
@@ -10,6 +11,7 @@ using PatientService.Infrastructure.Repositories;
 using PatientService.Middleware;
 using Prometheus;
 using Serilog;
+using Serilog.Enrichers.Span;
 using Serilog.Sinks.Grafana.Loki;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -18,6 +20,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((ctx, cfg) => cfg
     .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.WithSpan()
     .WriteTo.Console()
     .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
     .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
@@ -46,6 +49,7 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
 
 // Custom Prometheus metrics (external_call_duration_seconds)
 builder.Services.AddMetricsHttpHandler();
+builder.Services.AddJaegerTracing(builder.Configuration, "patient-service");
 
 // Auth Service HTTP client
 builder.Services.AddHttpClient<AuthServiceClient>(client =>

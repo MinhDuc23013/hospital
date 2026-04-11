@@ -1,19 +1,25 @@
 using HospitalShared.Auth;
+using HospitalShared.Tracing;
 using Prometheus;
 using NotificationServiceDotnet.Infrastructure.Consumers;
 using NotificationServiceDotnet.Infrastructure.Services;
 using NotificationServiceDotnet.Middleware;
 using Serilog;
+using Serilog.Enrichers.Span;
 using Serilog.Sinks.Grafana.Loki;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((ctx, cfg) => cfg
     .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.WithSpan()
     .WriteTo.Console()
     .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
     .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
         labels: [new() { Key = "service", Value = "notification-service" }]));
+
+// Distributed tracing (Jaeger via OpenTelemetry)
+builder.Services.AddJaegerTracing(builder.Configuration, "notification-service");
 
 // MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));

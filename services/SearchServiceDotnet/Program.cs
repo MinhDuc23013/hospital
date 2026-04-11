@@ -1,11 +1,13 @@
 using HospitalShared.Auth;
 using HospitalShared.Metrics;
+using HospitalShared.Tracing;
 using SearchServiceDotnet.Application.Services;
 using SearchServiceDotnet.Infrastructure.Elasticsearch;
 using SearchServiceDotnet.Infrastructure.Kafka;
 using SearchServiceDotnet.Middleware;
 using Prometheus;
 using Serilog;
+using Serilog.Enrichers.Span;
 using Serilog.Sinks.Grafana.Loki;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 // ── Serilog ──────────────────────────────────────────────────────────────────
 builder.Host.UseSerilog((ctx, cfg) => cfg
     .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.WithSpan()
     .WriteTo.Console()
     .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
     .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
@@ -34,6 +37,7 @@ builder.Services.AddHostedService<SlotEventConsumer>();
 builder.Services.AddScoped<SearchService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddMetricsHttpHandler();
+builder.Services.AddJaegerTracing(builder.Configuration, "search-service");
 builder.Services.AddHttpClient<ReindexService>().AddMetricsHandler();
 builder.Services.AddScoped<ReindexService>();
 

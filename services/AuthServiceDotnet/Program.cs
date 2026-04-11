@@ -2,14 +2,17 @@ using AuthServiceDotnet.Infrastructure.Keycloak;
 using AuthServiceDotnet.Middleware;
 using HospitalShared.Auth;
 using HospitalShared.Metrics;
+using HospitalShared.Tracing;
 using Prometheus;
 using Serilog;
+using Serilog.Enrichers.Span;
 using Serilog.Sinks.Grafana.Loki;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((ctx, cfg) => cfg
     .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.WithSpan()
     .WriteTo.Console()
     .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
     .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
@@ -17,6 +20,7 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
 
 // Custom Prometheus metrics (external_call_duration_seconds)
 builder.Services.AddMetricsHttpHandler();
+builder.Services.AddJaegerTracing(builder.Configuration, "auth-service");
 
 // Keycloak Admin API client
 builder.Services.AddHttpClient<KeycloakAdminClient>(c => c.Timeout = TimeSpan.FromSeconds(10))

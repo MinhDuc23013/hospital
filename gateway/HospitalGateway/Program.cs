@@ -1,9 +1,11 @@
 using HospitalGateway.Extensions;
 using HospitalShared.Metrics;
+using HospitalShared.Tracing;
 using HospitalGateway.Middleware;
 using HospitalGateway.Services;
 using Prometheus;
 using Serilog;
+using Serilog.Enrichers.Span;
 using Serilog.Sinks.Grafana.Loki;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Structured logging with Serilog
 builder.Host.UseSerilog((ctx, cfg) => cfg
     .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.WithSpan()
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}")
     .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
     .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
@@ -41,6 +44,7 @@ builder.Services.AddSwaggerGen(c =>
 
 // Custom Prometheus metrics (external_call_duration_seconds)
 builder.Services.AddMetricsHttpHandler();
+builder.Services.AddJaegerTracing(builder.Configuration, "hospital-gateway");
 
 // Named HTTP client for downstream service calls — 15 s timeout suits fan-out aggregation
 builder.Services.AddHttpClient("aggregation", c => c.Timeout = TimeSpan.FromSeconds(15))

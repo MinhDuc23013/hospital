@@ -235,6 +235,25 @@ services:
     networks:
       - hospital-network
 
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: hospital-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
   seq:
     image: datalust/seq:2023.4
     container_name: hospital-seq
@@ -311,6 +330,7 @@ services:
       - Keycloak__Audience=hospital-gateway
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
     depends_on:
       keycloak:
         condition: service_healthy
@@ -345,6 +365,7 @@ services:
       - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
     depends_on:
       postgres:
         condition: service_healthy
@@ -381,6 +402,7 @@ services:
       - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
     depends_on:
       postgres:
         condition: service_healthy
@@ -414,6 +436,7 @@ services:
       - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
     depends_on:
       mongo:
         condition: service_healthy
@@ -444,6 +467,7 @@ services:
       - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
       - Services__PaymentService=http://payment-service:5008
     depends_on:
       postgres:
@@ -482,6 +506,7 @@ services:
       - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -512,6 +537,7 @@ services:
       - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
     depends_on:
       keycloak:
         condition: service_healthy
@@ -540,6 +566,7 @@ services:
       - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
       - Services__PatientService=http://patient-service:5001
       - Services__AppointmentService=http://appointment-service:5002
       - Services__DoctorScheduleService=http://doctor-schedule-service:5007
@@ -575,6 +602,7 @@ services:
       - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
     depends_on:
       postgres:
         condition: service_healthy
@@ -604,6 +632,7 @@ services:
       - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
     depends_on:
       postgres:
         condition: service_healthy

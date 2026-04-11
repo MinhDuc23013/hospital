@@ -4,6 +4,7 @@ WORKDIR /app
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY ["services/SearchServiceDotnet/SearchServiceDotnet.csproj", "services/SearchServiceDotnet/"]
+COPY ["shared/HospitalShared/HospitalShared.csproj", "shared/HospitalShared/"]
 RUN dotnet restore "services/SearchServiceDotnet/SearchServiceDotnet.csproj"
 COPY . .
 WORKDIR "/src/services/SearchServiceDotnet"
