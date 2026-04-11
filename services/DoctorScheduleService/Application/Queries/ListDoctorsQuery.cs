@@ -4,6 +4,7 @@ using MediatR;
 namespace DoctorScheduleService.Application.Queries;
 
 public record ListDoctorsQuery(
+    string? SearchName,
     string? Specialty,
     bool? IsActive,
     int Page = 1,

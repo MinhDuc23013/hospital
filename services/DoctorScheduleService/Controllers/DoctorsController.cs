@@ -33,12 +33,13 @@ public class DoctorsController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult> List(
-        [FromQuery] string? specialty, [FromQuery] bool? isActive,
+        [FromQuery] string? searchName, [FromQuery] string? specialty,
+        [FromQuery] bool? isActive,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
     {
         var (items, total) = await _mediator.Send(
-            new ListDoctorsQuery(specialty, isActive, page, pageSize), ct);
+            new ListDoctorsQuery(searchName, specialty, isActive, page, pageSize), ct);
         return Ok(new { data = items, pagination = new { total, page, pageSize } });
     }
 

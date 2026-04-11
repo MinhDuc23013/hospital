@@ -13,9 +13,11 @@ public class DoctorRepository : IDoctorRepository
         => _context.Doctors.FirstOrDefaultAsync(d => d.Id == id, ct);
 
     public async Task<(List<Doctor> Items, int Total)> ListAsync(
-        string? specialty, bool? isActive, int page, int pageSize, CancellationToken ct = default)
+        string? searchName, string? specialty, bool? isActive, int page, int pageSize, CancellationToken ct = default)
     {
         var query = _context.Doctors.AsQueryable();
+        if (!string.IsNullOrEmpty(searchName))
+            query = query.Where(d => d.FullName.ToLower().Contains(searchName.ToLower()));
         if (!string.IsNullOrEmpty(specialty)) query = query.Where(d => d.Specialty == specialty);
         if (isActive.HasValue) query = query.Where(d => d.IsActive == isActive);
         query = query.OrderBy(d => d.FullName);

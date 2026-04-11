@@ -25,9 +25,12 @@ public static class KeycloakAuthExtensions
                 options.Authority = authority;
                 options.RequireHttpsMetadata = false;
 
+                // Accept tokens issued by both Docker-internal and localhost Keycloak URLs
+                var localhostIssuer = authority.Replace("keycloak:", "localhost:");
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
+                    ValidIssuers = new[] { authority, localhostIssuer },
                     ValidateAudience = false,
                     ValidateLifetime = true,
                     RoleClaimType = ClaimTypes.Role

@@ -12,7 +12,7 @@ public class ListDoctorsHandler : IRequestHandler<ListDoctorsQuery, (List<Doctor
 
     public async Task<(List<DoctorDto> Items, int Total)> Handle(ListDoctorsQuery query, CancellationToken ct)
     {
-        var (doctors, total) = await _repo.ListAsync(query.Specialty, query.IsActive, query.Page, query.PageSize, ct);
+        var (doctors, total) = await _repo.ListAsync(query.SearchName, query.Specialty, query.IsActive, query.Page, query.PageSize, ct);
         return (doctors.Select(DoctorMapper.ToDto).ToList(), total);
     }
 }
