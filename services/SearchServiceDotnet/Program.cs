@@ -38,7 +38,7 @@ builder.Services.AddScoped<SearchService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddMetricsHttpHandler();
 builder.Services.AddJaegerTracing(builder.Configuration, "search-service");
-builder.Services.AddHttpClient<ReindexService>().AddMetricsHandler();
+builder.Services.AddHttpClient<ReindexService>().AddTokenForwarding().AddMetricsHandler();
 builder.Services.AddScoped<ReindexService>();
 
 // ── MVC + Swagger ─────────────────────────────────────────────────────────────

@@ -73,7 +73,7 @@ builder.Services.AddHttpClient<PaymentServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008/");
-}).AddMetricsHandler();
+}).AddTokenForwarding().AddMetricsHandler();
 
 // Background workers
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<PharmacyDbContext>>();

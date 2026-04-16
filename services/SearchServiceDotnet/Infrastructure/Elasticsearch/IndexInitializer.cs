@@ -18,6 +18,7 @@ public class IndexInitializer : IHostedService
     private const string AppointmentIndex = "hospital-appointments";
     private const string PaymentIndex     = "hospital-payments";
     private const string SlotIndex        = "hospital-slots";
+    private const string DoctorIndex      = "hospital-doctors";
 
     public IndexInitializer(ElasticsearchClient client, ILogger<IndexInitializer> logger)
     {
@@ -32,6 +33,7 @@ public class IndexInitializer : IHostedService
         await EnsureAppointmentIndexAsync(cancellationToken);
         await EnsurePaymentIndexAsync(cancellationToken);
         await EnsureSlotIndexAsync(cancellationToken);
+        await EnsureDoctorIndexAsync(cancellationToken);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
@@ -177,6 +179,43 @@ public class IndexInitializer : IHostedService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Non-fatal error initializing index '{Index}'", PaymentIndex);
+        }
+    }
+
+    // ── Doctors ───────────────────────────────────────────────────────────────
+
+    private async Task EnsureDoctorIndexAsync(CancellationToken ct)
+    {
+        try
+        {
+            var exists = await _client.Indices.ExistsAsync(DoctorIndex, ct);
+            if (exists.Exists)
+            {
+                _logger.LogInformation("Index '{Index}' already exists — skipping creation", DoctorIndex);
+                return;
+            }
+
+            var response = await _client.Indices.CreateAsync(DoctorIndex, c => c
+                .Mappings(m => m
+                    .Properties<DoctorDocument>(p => p
+                        .Keyword(f => f.DoctorId)
+                        .Text(f => f.FullName, t => t.Analyzer("standard"))
+                        .Keyword(f => f.Specialty)
+                        .Keyword(f => f.Phone)
+                        .Keyword(f => f.Email)
+                        .Boolean(f => f.IsActive)
+                        .Date(f => f.CreatedAt)
+                    )
+                ), ct);
+
+            if (response.IsValidResponse)
+                _logger.LogInformation("Created index '{Index}'", DoctorIndex);
+            else
+                _logger.LogWarning("Failed to create index '{Index}': {Debug}", DoctorIndex, response.DebugInformation);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Non-fatal error initializing index '{Index}'", DoctorIndex);
         }
     }
 

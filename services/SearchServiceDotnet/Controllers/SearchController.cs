@@ -45,6 +45,14 @@ public class SearchController : ControllerBase
             var (items, total) = await _searchService.SearchDrugsAsync(q, page, pageSize, ct);
             return Ok(new { data = items, pagination = new { total, page, pageSize } });
         }
+        else if (type.Equals("doctor", StringComparison.OrdinalIgnoreCase))
+        {
+            var isActive = HttpContext.Request.Query.ContainsKey("isActive")
+                ? bool.TryParse(HttpContext.Request.Query["isActive"], out var v) ? v : (bool?)null
+                : null;
+            var (items, total) = await _searchService.SearchDoctorsAsync(q, isActive, page, pageSize, ct);
+            return Ok(new { data = items, pagination = new { total, page, pageSize } });
+        }
         else
         {
             // Default to patient search

@@ -17,7 +17,7 @@ public class DoctorRepository : IDoctorRepository
     {
         var query = _context.Doctors.AsQueryable();
         if (!string.IsNullOrEmpty(searchName))
-            query = query.Where(d => d.FullName.ToLower().Contains(searchName.ToLower()));
+            query = query.Where(d => EF.Functions.ILike(d.FullName, $"%{searchName}%"));
         if (!string.IsNullOrEmpty(specialty)) query = query.Where(d => d.Specialty == specialty);
         if (isActive.HasValue) query = query.Where(d => d.IsActive == isActive);
         query = query.OrderBy(d => d.FullName);

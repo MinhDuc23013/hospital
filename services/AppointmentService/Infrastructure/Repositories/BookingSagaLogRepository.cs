@@ -9,6 +9,9 @@ public class BookingSagaLogRepository : IBookingSagaLogRepository
     private readonly AppointmentDbContext _context;
     public BookingSagaLogRepository(AppointmentDbContext context) => _context = context;
 
+    public void Add(BookingSagaLog log)
+        => _context.BookingSagaLogs.Add(log);
+
     public Task AddAsync(BookingSagaLog log, CancellationToken ct = default)
         => _context.BookingSagaLogs.AddAsync(log, ct).AsTask();
 

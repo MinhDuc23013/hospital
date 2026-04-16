@@ -75,8 +75,8 @@ public class BookingSagaOrchestrator
 
             // Saga now waits for external payment confirmation (webhook/callback)
             saga.MarkAwaitingPayment();
-            await _sagaRepo.SaveChangesAsync(ct);
-            await LogStepAsync(saga, "SlotConfirmed", "AwaitingPayment", "Booking confirmed, awaiting payment", ct: ct);
+            AddStepLog(saga, "SlotConfirmed", "AwaitingPayment", "Booking confirmed, awaiting payment");
+            await _sagaRepo.SaveChangesAsync(ct); // single flush: saga + log
 
             _logger.LogInformation("Saga {SagaId} awaiting payment. Appointment {AppointmentId}, Payment {PaymentId}",
                 saga.Id, saga.AppointmentId, saga.PaymentId);
@@ -107,12 +107,11 @@ public class BookingSagaOrchestrator
 
         var appointment = Appointment.Create(patientId, providerId, scheduledTime, durationMinutes, notes);
         await _appointmentRepo.AddAsync(appointment, ct);
-        await _appointmentRepo.SaveChangesAsync(ct);
 
         saga.MarkAppointmentCreated(appointment.Id);
-        await _sagaRepo.SaveChangesAsync(ct);
+        AddStepLog(saga, "Started", "AppointmentCreated", $"Appointment {appointment.Id} created");
+        await _sagaRepo.SaveChangesAsync(ct); // single flush: appointment + saga + log
         _logger.LogInformation("Saga {SagaId} step AppointmentCreated: Appointment {AppointmentId} for patient {PatientId}", saga.Id, appointment.Id, patientId);
-        await LogStepAsync(saga, "Started", "AppointmentCreated", $"Appointment {appointment.Id} created", ct: ct);
     }
 
     private async Task StepReserveSlot(BookingSaga saga, CancellationToken ct)
@@ -122,9 +121,9 @@ public class BookingSagaOrchestrator
             throw new SagaStepException("Failed to reserve slot — DoctorScheduleService unavailable or slot taken.");
 
         saga.MarkSlotReserved();
-        await _sagaRepo.SaveChangesAsync(ct);
+        AddStepLog(saga, "AppointmentCreated", "SlotReserved", $"Slot {saga.SlotId} reserved");
+        await _sagaRepo.SaveChangesAsync(ct); // single flush: saga + log
         _logger.LogInformation("Saga {SagaId} step SlotReserved: Slot {SlotId} on schedule {ScheduleId}", saga.Id, saga.SlotId, saga.ScheduleId);
-        await LogStepAsync(saga, "AppointmentCreated", "SlotReserved", $"Slot {saga.SlotId} reserved", ct: ct);
     }
 
     /// <summary>Creates a Pending payment — does NOT process it. Payment confirmation comes async via webhook.</summary>
@@ -138,9 +137,9 @@ public class BookingSagaOrchestrator
             throw new SagaStepException("Failed to create payment — PaymentService unavailable.");
 
         saga.MarkPaymentCreated(payment.Id);
-        await _sagaRepo.SaveChangesAsync(ct);
+        AddStepLog(saga, "SlotReserved", "PaymentCreated", $"Payment {payment.Id} created (Pending)");
+        await _sagaRepo.SaveChangesAsync(ct); // single flush: saga + log
         _logger.LogInformation("Saga {SagaId} step PaymentCreated: Payment {PaymentId} amount {Amount} (Pending)", saga.Id, payment.Id, amount);
-        await LogStepAsync(saga, "SlotReserved", "PaymentCreated", $"Payment {payment.Id} created (Pending)", ct: ct);
     }
 
     private async Task StepConfirmSlot(BookingSaga saga, CancellationToken ct)
@@ -151,9 +150,9 @@ public class BookingSagaOrchestrator
             throw new SagaStepException("Failed to confirm slot — DoctorScheduleService unavailable.");
 
         saga.MarkSlotConfirmed();
-        await _sagaRepo.SaveChangesAsync(ct);
+        AddStepLog(saga, "PaymentCreated", "SlotConfirmed", "Slot confirmed with appointment");
+        await _sagaRepo.SaveChangesAsync(ct); // single flush: saga + log
         _logger.LogInformation("Saga {SagaId} step SlotConfirmed: Slot {SlotId} confirmed for appointment {AppointmentId}", saga.Id, saga.SlotId, saga.AppointmentId);
-        await LogStepAsync(saga, "PaymentCreated", "SlotConfirmed", "Slot confirmed with appointment", ct: ct);
     }
 
     private async Task PublishNotification(
@@ -324,6 +323,16 @@ public class BookingSagaOrchestrator
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
+    /// <summary>Add log to context without saving — caller batches the SaveChangesAsync.</summary>
+    private void AddStepLog(
+        BookingSaga saga, string fromStep, string toStep,
+        string? message = null, string? details = null)
+    {
+        var log = BookingSagaLog.Create(saga.Id, fromStep, toStep, message, details);
+        _logRepo.Add(log);
+    }
+
+    /// <summary>Add + save log immediately (used by compensation and async flows).</summary>
     private async Task LogStepAsync(
         BookingSaga saga, string fromStep, string toStep,
         string? message = null, string? details = null, CancellationToken ct = default)

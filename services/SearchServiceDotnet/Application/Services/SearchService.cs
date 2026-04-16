@@ -15,6 +15,7 @@ public class SearchService
 
     private const string PatientIndex = "hospital-patients";
     private const string DrugIndex    = "hospital-drugs";
+    private const string DoctorIndex  = "hospital-doctors";
 
     public SearchService(ElasticsearchClient client, ILogger<SearchService> logger)
     {
@@ -51,6 +52,59 @@ public class SearchService
         var items = response.Documents;
         var total = response.HitsMetadata?.Total?.Value ?? 0;
         return (items, total);
+    }
+
+    /// <summary>
+    /// Searches doctors by multi-match on fullName, specialty, email.
+    /// Supports optional isActive filter.
+    /// </summary>
+    public async Task<(IReadOnlyCollection<DoctorDocument> Items, long Total)> SearchDoctorsAsync(
+        string query, bool? isActive, int page, int pageSize, CancellationToken ct = default)
+    {
+        var from = (page - 1) * pageSize;
+
+        var response = await _client.SearchAsync<DoctorDocument>(s =>
+        {
+            s.Index(DoctorIndex)
+             .From(from)
+             .Size(pageSize);
+
+            if (isActive.HasValue)
+            {
+                s.Query(q => q
+                    .Bool(b => b
+                        .Must(must => must
+                            .MultiMatch(mm => mm
+                                .Query(query)
+                                .Fields(new[] { "fullName", "specialty", "email" })
+                                .Fuzziness(new Elastic.Clients.Elasticsearch.Fuzziness("AUTO"))
+                            )
+                        )
+                        .Filter(f => f
+                            .Term(t => t.Field(d => d.IsActive).Value(isActive.Value))
+                        )
+                    )
+                );
+            }
+            else
+            {
+                s.Query(q => q
+                    .MultiMatch(mm => mm
+                        .Query(query)
+                        .Fields(new[] { "fullName", "specialty", "email" })
+                        .Fuzziness(new Elastic.Clients.Elasticsearch.Fuzziness("AUTO"))
+                    )
+                );
+            }
+        }, ct);
+
+        if (!response.IsValidResponse)
+        {
+            _logger.LogWarning("Doctor search returned invalid response: {Debug}", response.DebugInformation);
+            return (Array.Empty<DoctorDocument>(), 0);
+        }
+
+        return (response.Documents, response.HitsMetadata?.Total?.Value ?? 0);
     }
 
     /// <summary>

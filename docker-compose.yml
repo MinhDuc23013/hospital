@@ -16,6 +16,7 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: hospital-postgres
+    command: postgres -c max_connections=200 -c shared_buffers=256MB
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hospital}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_change_me}
@@ -599,6 +600,7 @@ services:
       - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
       - Kafka__BootstrapServers=kafka:9092
       - Services__AuthService=http://auth-service:5009
+      - Elasticsearch__Uri=http://elasticsearch:9200
       - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100

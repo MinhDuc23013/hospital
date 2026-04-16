@@ -57,7 +57,12 @@ builder.Services.AddHttpClient<AuthServiceClient>(client =>
     client.BaseAddress = new Uri(
         builder.Configuration["Services:AuthService"] ?? "http://auth-service:5009");
     client.Timeout = TimeSpan.FromSeconds(10);
-}).AddMetricsHandler();
+}).AddTokenForwarding().AddMetricsHandler();
+
+// Elasticsearch client (direct search, no hop via SearchService)
+var esUri = builder.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200";
+builder.Services.AddSingleton(new Elastic.Clients.Elasticsearch.ElasticsearchClient(
+    new Elastic.Clients.Elasticsearch.ElasticsearchClientSettings(new Uri(esUri))));
 
 // Repositories & services
 builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();

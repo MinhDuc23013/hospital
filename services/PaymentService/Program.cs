@@ -57,7 +57,7 @@ builder.Services.AddHttpClient<AppointmentServiceClient>(client =>
     client.BaseAddress = new Uri(
         builder.Configuration["Services:AppointmentService"] ?? "http://appointment-service:5002");
     client.Timeout = TimeSpan.FromSeconds(5);
-}).AddMetricsHandler();
+}).AddTokenForwarding().AddMetricsHandler();
 
 // Repositories & services
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();

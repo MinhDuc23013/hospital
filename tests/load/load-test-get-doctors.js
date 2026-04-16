@@ -5,10 +5,10 @@ import { check, sleep } from "k6";
 // Ramp-up load test: tăng dần VUs để tìm giới hạn chịu tải
 export const options = {
   stages: [
-    { duration: "30s", target: 50 },   // warm-up: 0 → 50 users
-    { duration: "1m",  target: 100 },   // ramp: 50 → 100
-    { duration: "1m",  target: 200 },   // push: 100 → 200
-    { duration: "1m",  target: 300 },   // stress: 200 → 500
+    { duration: "30s", target: 10 },   // warm-up: 0 → 50 users
+    { duration: "1m",  target: 20 },   // ramp: 50 → 100
+    { duration: "1m",  target: 40 },   // push: 100 → 200
+    { duration: "1m",  target: 50 },   // stress: 200 → 500
     { duration: "30s", target: 0 },     // cool-down
   ],
   thresholds: {

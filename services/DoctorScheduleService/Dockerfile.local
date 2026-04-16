@@ -1,0 +1,6 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY services/DoctorScheduleService/publish-output/ .
+ENV ASPNETCORE_URLS=http://+:5007
+EXPOSE 5007
+ENTRYPOINT ["dotnet", "DoctorScheduleService.dll"]

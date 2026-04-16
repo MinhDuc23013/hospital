@@ -59,7 +59,7 @@ builder.Services.AddHttpClient<PatientServiceClient>(client =>
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PatientService"] ?? "http://patient-service:5001");
     client.Timeout = TimeSpan.FromSeconds(5);
-}).AddMetricsHandler();
+}).AddTokenForwarding().AddMetricsHandler();
 
 // DoctorScheduleService HTTP client
 builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
@@ -67,7 +67,7 @@ builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
     client.BaseAddress = new Uri(
         builder.Configuration["Services:DoctorScheduleService"] ?? "http://doctor-schedule-service:5007");
     client.Timeout = TimeSpan.FromSeconds(30);
-}).AddMetricsHandler();
+}).AddTokenForwarding().AddMetricsHandler();
 
 // PaymentService HTTP client
 builder.Services.AddHttpClient<PaymentServiceClient>(client =>
@@ -75,7 +75,7 @@ builder.Services.AddHttpClient<PaymentServiceClient>(client =>
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008");
     client.Timeout = TimeSpan.FromSeconds(30);
-}).AddMetricsHandler();
+}).AddTokenForwarding().AddMetricsHandler();
 
 // Repositories & services
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();

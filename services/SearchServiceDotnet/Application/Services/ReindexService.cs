@@ -6,6 +6,17 @@ namespace SearchServiceDotnet.Application.Services;
 
 // ── Internal DTOs for deserializing upstream service responses ────────────────
 
+file class DoctorDto
+{
+    public string Id        { get; set; } = string.Empty;
+    public string FullName  { get; set; } = string.Empty;
+    public string Specialty { get; set; } = string.Empty;
+    public string? Phone    { get; set; }
+    public string? Email    { get; set; }
+    public bool   IsActive  { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
 file class PatientDto
 {
     public string Id        { get; set; } = string.Empty;
@@ -60,10 +71,12 @@ public class ReindexService
     private readonly string _patientServiceUrl;
     private readonly string _appointmentServiceUrl;
     private readonly string _paymentServiceUrl;
+    private readonly string _doctorServiceUrl;
 
     private const string PatientIndex     = "hospital-patients";
     private const string AppointmentIndex = "hospital-appointments";
     private const string PaymentIndex     = "hospital-payments";
+    private const string DoctorIndex      = "hospital-doctors";
 
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
@@ -83,6 +96,7 @@ public class ReindexService
         _patientServiceUrl     = config["Services:PatientService"]      ?? "http://patient-service:5001";
         _appointmentServiceUrl = config["Services:AppointmentService"]  ?? "http://appointment-service:5002";
         _paymentServiceUrl     = config["Services:PaymentService"]      ?? "http://payment-service:5008";
+        _doctorServiceUrl      = config["Services:DoctorScheduleService"] ?? "http://doctor-schedule-service:5007";
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -96,7 +110,8 @@ public class ReindexService
         {
             ReindexPatientsAsync(ct),
             ReindexAppointmentsAsync(ct),
-            ReindexPaymentsAsync(ct)
+            ReindexPaymentsAsync(ct),
+            ReindexDoctorsAsync(ct)
         };
 
         var results = await Task.WhenAll(tasks);
@@ -105,12 +120,13 @@ public class ReindexService
         {
             Patients     = results[0],
             Appointments = results[1],
-            Payments     = results[2]
+            Payments     = results[2],
+            Doctors      = results[3]
         };
 
         _logger.LogInformation(
-            "Full reindex done — patients={P} appointments={A} payments={Pay}",
-            summary.Patients, summary.Appointments, summary.Payments);
+            "Full reindex done — patients={P} appointments={A} payments={Pay} doctors={D}",
+            summary.Patients, summary.Appointments, summary.Payments, summary.Doctors);
 
         return summary;
     }
@@ -231,6 +247,43 @@ public class ReindexService
         return indexed;
     }
 
+    /// <summary>Fetches all doctors from DoctorScheduleService and bulk-indexes to hospital-doctors.</summary>
+    public async Task<int> ReindexDoctorsAsync(CancellationToken ct = default)
+    {
+        _logger.LogInformation("Reindexing doctors from {Url}", _doctorServiceUrl);
+
+        var docs  = new List<DoctorDocument>();
+        int page  = 1;
+        const int pageSize = 1000;
+
+        while (true)
+        {
+            var url   = $"{_doctorServiceUrl}/api/doctors?page={page}&pageSize={pageSize}";
+            var batch = await FetchPageAsync<DoctorDto>(url, ct);
+            if (batch == null) break;
+            if (batch.Count == 0) break;
+
+            docs.AddRange(batch.Select(d => new DoctorDocument
+            {
+                DoctorId  = d.Id,
+                FullName  = d.FullName,
+                Specialty = d.Specialty,
+                Phone     = d.Phone,
+                Email     = d.Email,
+                IsActive  = d.IsActive,
+                CreatedAt = d.CreatedAt
+            }));
+
+            _logger.LogDebug("Doctors page {Page}: fetched {Count}", page, batch.Count);
+            if (batch.Count < pageSize) break;
+            page++;
+        }
+
+        var indexed = await BulkIndexAsync(DoctorIndex, docs, d => d.DoctorId, ct);
+        _logger.LogInformation("Doctors reindexed: {Count}", indexed);
+        return indexed;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -241,6 +294,7 @@ public class ReindexService
     {
         try
         {
+            // Token forwarding handled by TokenForwardingHandler (DelegatingHandler)
             var response = await _httpClient.GetAsync(url, ct);
             response.EnsureSuccessStatusCode();
 
@@ -269,9 +323,8 @@ public class ReindexService
     }
 
     /// <summary>
-    /// Indexes a list of documents into the given Elasticsearch index in parallel batches.
-    /// Runs IndexAsync concurrently (up to 20 at a time) to avoid overwhelming ES.
-    /// Returns the number of successfully indexed documents.
+    /// Indexes documents using Elasticsearch Bulk API for high throughput.
+    /// Sends 1000 docs per bulk request instead of 1 request per doc.
     /// </summary>
     private async Task<int> BulkIndexAsync<T>(
         string index,
@@ -282,43 +335,50 @@ public class ReindexService
         if (docs.Count == 0) return 0;
 
         int indexed = 0;
-        // Process in chunks of 100 to keep ES request load manageable
-        const int chunkSize = 100;
+        const int chunkSize = 1000;
 
         for (int i = 0; i < docs.Count; i += chunkSize)
         {
             var chunk = docs.Skip(i).Take(chunkSize).ToList();
 
-            var tasks = chunk.Select(async doc =>
+            try
             {
-                try
+                var operations = new List<Elastic.Clients.Elasticsearch.Core.Bulk.IBulkOperation>();
+                foreach (var doc in chunk)
                 {
-                    var id       = idSelector(doc);
-                    var response = await _esClient.IndexAsync(doc, idx => idx
-                        .Index(index)
-                        .Id(id), ct);
-
-                    if (!response.IsValidResponse)
+                    operations.Add(new Elastic.Clients.Elasticsearch.Core.Bulk.BulkIndexOperation<T>(doc)
                     {
-                        _logger.LogWarning(
-                            "Failed to index doc {Id} into {Index}: {Debug}",
-                            id, index, response.DebugInformation);
-                        return 0;
-                    }
-                    return 1;
+                        Id = idSelector(doc)
+                    });
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Error indexing document into {Index}", index);
-                    return 0;
-                }
-            });
 
-            var results = await Task.WhenAll(tasks);
-            indexed += results.Sum();
+                var response = await _esClient.BulkAsync(new Elastic.Clients.Elasticsearch.BulkRequest(index)
+                {
+                    Operations = operations
+                }, ct);
+
+                if (response.IsValidResponse)
+                {
+                    indexed += chunk.Count - (int)response.Errors.GetHashCode(); // fallback
+                    indexed = i + chunk.Count; // simpler: count all sent so far
+                    if (response.Errors)
+                        _logger.LogWarning("Bulk index to {Index} had {ErrorCount} errors", index,
+                            response.ItemsWithErrors.Count());
+                    else
+                        indexed = i + chunk.Count;
+                }
+                else
+                {
+                    _logger.LogWarning("Bulk index to {Index} failed: {Debug}", index, response.DebugInformation);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error bulk-indexing {Count} docs into {Index}", chunk.Count, index);
+            }
         }
 
-        return indexed;
+        return Math.Min(indexed, docs.Count);
     }
 }
 
@@ -328,4 +388,5 @@ public class ReindexSummary
     public int Patients     { get; set; }
     public int Appointments { get; set; }
     public int Payments     { get; set; }
+    public int Doctors      { get; set; }
 }

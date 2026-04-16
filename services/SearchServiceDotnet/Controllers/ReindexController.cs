@@ -37,6 +37,7 @@ public class ReindexController : ControllerBase
         int patients     = 0;
         int appointments = 0;
         int payments     = 0;
+        int doctors      = 0;
 
         switch (type.ToLowerInvariant())
         {
@@ -52,12 +53,17 @@ public class ReindexController : ControllerBase
                 payments = await _reindexService.ReindexPaymentsAsync(ct);
                 break;
 
+            case "doctor":
+                doctors = await _reindexService.ReindexDoctorsAsync(ct);
+                break;
+
             case "all":
             default:
                 var summary  = await _reindexService.ReindexAllAsync(ct);
                 patients     = summary.Patients;
                 appointments = summary.Appointments;
                 payments     = summary.Payments;
+                doctors      = summary.Doctors;
                 break;
         }
 
@@ -69,7 +75,8 @@ public class ReindexController : ControllerBase
             {
                 patients,
                 appointments,
-                payments
+                payments,
+                doctors
             }
         });
     }

@@ -54,25 +54,13 @@ public class OutboxPublishWorker<TDbContext> : BackgroundService where TDbContex
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TDbContext>();
 
-        // Use explicit transaction + FOR UPDATE SKIP LOCKED to prevent
-        // multiple nodes from processing the same outbox rows.
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-
         var pending = await db.Set<EventOutbox>()
-            .FromSqlRaw("""
-                SELECT * FROM "EventOutbox"
-                WHERE "IsSent" = false AND "RetryCount" < {0}
-                ORDER BY "CreatedAt"
-                LIMIT {1}
-                FOR UPDATE SKIP LOCKED
-                """, MaxRetries, BatchSize)
+            .Where(e => !e.IsSent && e.RetryCount < MaxRetries)
+            .OrderBy(e => e.CreatedAt)
+            .Take(BatchSize)
             .ToListAsync(ct);
 
-        if (pending.Count == 0)
-        {
-            await tx.CommitAsync(ct);
-            return;
-        }
+        if (pending.Count == 0) return;
 
         _logger.LogInformation("OutboxPublishWorker processing {Count} pending events", pending.Count);
 
@@ -110,6 +98,5 @@ public class OutboxPublishWorker<TDbContext> : BackgroundService where TDbContex
         }
 
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
     }
 }
