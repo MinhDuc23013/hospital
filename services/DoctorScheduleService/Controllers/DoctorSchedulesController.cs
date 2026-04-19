@@ -56,6 +56,14 @@ public class DoctorSchedulesController : ControllerBase
         return Ok(slots);
     }
 
+    /// <summary>Get ALL slots (Available, Reserved, Confirmed) for a schedule — used by UI to show booked slots as disabled.</summary>
+    [HttpGet("{id:guid}/slots")]
+    public async Task<ActionResult<List<TimeSlotDto>>> GetAllSlots(Guid id, CancellationToken ct)
+    {
+        var slots = await _mediator.Send(new GetAllSlotsQuery(id), ct);
+        return Ok(slots);
+    }
+
     /// <summary>Reserve a slot for a patient (holds slot for 15 minutes).</summary>
     [HttpPost("{scheduleId:guid}/slots/{slotId:guid}/reserve")]
     public async Task<ActionResult<TimeSlotDto>> ReserveSlot(

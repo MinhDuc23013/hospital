@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useCreateAdminUser, useUpdateAdminUser } from './use-admin-users';
 import type { KeycloakUser, CreateUserPayload, UpdateUserPayload } from '../../shared/types/admin';
@@ -10,21 +11,29 @@ interface Props {
   onClose: () => void;
 }
 
+interface FormValues extends CreateUserPayload {
+  confirmPassword: string;
+}
+
 export function UserFormModal({ mode, user, onClose }: Props) {
-  const { register, handleSubmit, formState: { errors } } = useForm<CreateUserPayload>({
+  const [showPassword, setShowPassword] = useState(false);
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormValues>({
     defaultValues: mode === 'edit' && user
       ? { firstName: user.firstName, lastName: user.lastName }
       : undefined,
   });
+
+  const passwordValue = watch('password', '');
 
   const createMutation = useCreateAdminUser();
   const updateMutation = useUpdateAdminUser(user?.id ?? '');
   const isPending = createMutation.isPending || updateMutation.isPending;
   const error = createMutation.error || updateMutation.error;
 
-  const onSubmit = async (values: CreateUserPayload) => {
+  const onSubmit = async (values: FormValues) => {
     if (mode === 'create') {
-      await createMutation.mutateAsync(values);
+      const { confirmPassword, ...payload } = values;
+      await createMutation.mutateAsync(payload);
     } else {
       const payload: UpdateUserPayload = {
         firstName: values.firstName,
@@ -72,9 +81,41 @@ export function UserFormModal({ mode, user, onClose }: Props) {
 
               <div>
                 <label className="block text-sm font-medium mb-1">Password</label>
-                <input {...register('password', { required: 'Required', minLength: { value: 6, message: 'Min 6 chars' } })}
-                  type="password" className="w-full border rounded px-3 py-2 text-sm" />
+                <div className="relative">
+                  <input
+                    {...register('password', {
+                      required: 'Required',
+                      minLength: { value: 8, message: 'Min 8 chars' },
+                    })}
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    className="w-full border rounded px-3 py-2 text-sm pr-20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(s => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-600 hover:text-blue-800 px-2"
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
                 {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Confirm Password</label>
+                <input
+                  {...register('confirmPassword', {
+                    required: 'Please confirm password',
+                    validate: value => value === passwordValue || 'Passwords do not match',
+                  })}
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  className="w-full border rounded px-3 py-2 text-sm"
+                />
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>
+                )}
               </div>
 
               <div>

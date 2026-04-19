@@ -16,20 +16,22 @@ const MAX_TIMEOUTS = 20;
 let timeoutCounter = 0;
 
 // ── Config ───────────────────────────────────────────────────────────────────
+// Stress test: ramp up until breaking point (20 timeouts > 2s).
+// Each iteration ≈ 3 HTTP calls. ~6 req/s per VU.
 export const options = {
   stages: [
-    { duration: "30s", target: 5 },
-    { duration: "1m",  target: 10 },
-    { duration: "1m",  target: 20 },
-    { duration: "1m",  target: 30 },
-    { duration: "1m",  target: 40 },
-    { duration: "1m",  target: 50 },
-    { duration: "30s", target: 0 },
+    { duration: "20s", target: 20 },   // warm-up
+    { duration: "30s", target: 50 },   // ~300 req/s
+    { duration: "30s", target: 80 },   // ~480 req/s
+    { duration: "30s", target: 120 },  // ~720 req/s
+    { duration: "30s", target: 150 },  // ~900 req/s
+    { duration: "20s", target: 0 },    // cool-down
   ],
   thresholds: {
-    booking_duration:         [{ threshold: "p(95)<5000", abortOnFail: false }],
-    confirm_payment_duration: [{ threshold: "p(95)<3000", abortOnFail: false }],
-    complete_duration:        [{ threshold: "p(95)<3000", abortOnFail: false }],
+    booking_duration:         [{ threshold: "p(95)<2000", abortOnFail: false }],
+    confirm_payment_duration: [{ threshold: "p(95)<2000", abortOnFail: false }],
+    complete_duration:        [{ threshold: "p(95)<2000", abortOnFail: false }],
+    http_req_failed:          [{ threshold: "rate<0.05",  abortOnFail: false }],
   },
   summaryTrendStats: ["avg", "min", "med", "max", "p(90)", "p(95)", "p(99)", "count"],
 };
@@ -37,7 +39,7 @@ export const options = {
 // ── Keycloak ─────────────────────────────────────────────────────────────────
 const KEYCLOAK_URL = __ENV.KEYCLOAK_URL || "http://keycloak:8080";
 const GATEWAY_URL  = __ENV.GATEWAY_URL  || "http://hospital-gateway:5084";
-const SCHEDULE_URL = __ENV.SCHEDULE_URL || "http://doctor-schedule-service:5007";
+const SCHEDULE_URL = __ENV.SCHEDULE_URL || "http://hospital-gateway:5084";
 
 function getToken() {
   const res = http.post(`${KEYCLOAK_URL}/realms/hospital/protocol/openid-connect/token`, {
@@ -54,7 +56,7 @@ export function setup() {
   const token   = getToken();
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
-  // Get existing patients (pick first 10)
+  // Get existing patients
   const patientsRes = http.get(`${GATEWAY_URL}/api/patients?page=1&pageSize=10`, { headers });
   const patients = JSON.parse(patientsRes.body).data.map(p => p.id);
 
@@ -79,17 +81,21 @@ export function setup() {
 
     if (scheduleRes.status === 201 || scheduleRes.status === 200) {
       const schedule = JSON.parse(scheduleRes.body);
-      const availableSlots = (schedule.slots || [])
-        .filter(s => s.status === "Available" || s.status === 0)
-        .map(s => ({ slotId: s.id, startTime: s.startTime }));
 
-      if (availableSlots.length > 0) {
-        schedules.push({
-          scheduleId: schedule.id,
-          doctorId:   doctorId,
-          date:       dateStr,
-          slots:      availableSlots,
-        });
+      // Fetch available slots via dedicated endpoint
+      const slotsRes = http.get(`${SCHEDULE_URL}/api/doctor-schedules/${schedule.id}/slots/available`, { headers });
+      if (slotsRes.status === 200) {
+        const slots = JSON.parse(slotsRes.body);
+        const availableSlots = slots.map(s => ({ slotId: s.id, startTime: s.startTime }));
+
+        if (availableSlots.length > 0) {
+          schedules.push({
+            scheduleId: schedule.id,
+            doctorId:   doctorId,
+            date:       dateStr,
+            slots:      availableSlots,
+          });
+        }
       }
     }
   }
@@ -211,7 +217,7 @@ export default function (data) {
 
   // Abort if too many timeouts
   if (timeoutCounter >= MAX_TIMEOUTS) {
-    console.error(`⛔ ${MAX_TIMEOUTS} timeouts at ${exec.vu.idInTest} VUs — aborting`);
+    console.error(` ${MAX_TIMEOUTS} timeouts at ${exec.vu.idInTest} VUs — aborting`);
     exec.test.abort(`Breaking point: ${MAX_TIMEOUTS} requests > ${TIMEOUT_MS}ms`);
   }
 

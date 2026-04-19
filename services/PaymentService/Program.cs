@@ -62,6 +62,7 @@ builder.Services.AddHttpClient<AppointmentServiceClient>(client =>
 // Repositories & services
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentAuditLogRepository, PaymentAuditLogRepository>();
+builder.Services.AddScoped<ICashSessionRepository, CashSessionRepository>();
 builder.Services.AddScoped<EventPublisher>();
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<PaymentService.Infrastructure.Persistence.PaymentDbContext>>();
 
@@ -87,6 +88,45 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Payment Service v1"));
+}
+
+// Ensure cash_sessions table + receipt_seq sequence exist (dev — use migrations in prod)
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS cash_sessions (
+                ""Id"" uuid PRIMARY KEY,
+                ""CashierId"" varchar(100) NOT NULL,
+                ""CashierName"" varchar(200) NOT NULL,
+                ""CounterId"" varchar(50) NOT NULL,
+                ""OpeningBalance"" numeric(18,2) NOT NULL,
+                ""ExpectedCash"" numeric(18,2) NOT NULL,
+                ""ActualCash"" numeric(18,2) NULL,
+                ""Variance"" numeric(18,2) NULL,
+                ""Status"" varchar(20) NOT NULL,
+                ""OpenedAt"" timestamp NOT NULL DEFAULT NOW(),
+                ""ClosedAt"" timestamp NULL,
+                ""Notes"" varchar(1000) NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_cash_sessions_cashier_status ON cash_sessions(""CashierId"", ""Status"");
+            CREATE SEQUENCE IF NOT EXISTS receipt_seq START 1 INCREMENT 1;
+
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS ""AmountReceived"" numeric(18,2) NULL;
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS ""ChangeReturned"" numeric(18,2) NULL;
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS ""CashierId"" varchar(100) NULL;
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS ""CashSessionId"" uuid NULL;
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS ""ReceiptNumber"" varchar(50) NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS ix_payments_receipt ON payments(""ReceiptNumber"") WHERE ""ReceiptNumber"" IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS ix_payments_cash_session ON payments(""CashSessionId"");
+        ");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Failed to ensure cash payment schema — may already exist");
+    }
 }
 
 app.MapControllers();

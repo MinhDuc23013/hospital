@@ -1,6 +1,8 @@
 import api from '../../services/api';
 import { ENDPOINTS } from '../../services/endpoints';
-import type { Payment, PaymentListResponse } from '../../shared/types/payment';
+import type { Payment, PaymentListResponse, CashSession } from '../../shared/types/payment';
+
+const CASH_SESSIONS = '/api/cash-sessions';
 
 export const paymentApi = {
   list: (appointmentId?: string, patientId?: string, status?: string, page = 1, pageSize = 20) =>
@@ -18,4 +20,17 @@ export const paymentApi = {
 
   refund: (id: string) =>
     api.post<Payment>(`${ENDPOINTS.PAYMENTS}/${id}/refund`).then(r => r.data),
+
+  // Cash-specific endpoints
+  completeCash: (paymentId: string, body: { amountReceived: number; cashierId: string; cashSessionId: string }) =>
+    api.post<Payment>(`${ENDPOINTS.PAYMENTS}/${paymentId}/complete-cash`, body).then(r => r.data),
+
+  openCashSession: (body: { cashierId: string; cashierName: string; counterId: string; openingBalance: number }) =>
+    api.post<CashSession>(`${CASH_SESSIONS}/open`, body).then(r => r.data),
+
+  closeCashSession: (sessionId: string, body: { actualCash: number; notes?: string }) =>
+    api.post<CashSession>(`${CASH_SESSIONS}/${sessionId}/close`, body).then(r => r.data),
+
+  getCurrentCashSession: (cashierId: string) =>
+    api.get<CashSession>(`${CASH_SESSIONS}/current/${cashierId}`).then(r => r.data).catch(() => null),
 };

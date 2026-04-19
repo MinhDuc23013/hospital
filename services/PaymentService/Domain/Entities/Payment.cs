@@ -19,6 +19,13 @@ public class Payment
     public DateTime UpdatedAt { get; private set; }
     public DateTime? PaidAt { get; private set; }
 
+    // Cash-specific fields (null for non-cash payments)
+    public decimal? AmountReceived { get; private set; }       // Tiền patient đưa
+    public decimal? ChangeReturned { get; private set; }       // Tiền thối = AmountReceived - Amount
+    public string? CashierId { get; private set; }             // Keycloak user ID của cashier
+    public Guid? CashSessionId { get; private set; }           // Link vào ca thu ngân
+    public string? ReceiptNumber { get; private set; }         // Số biên lai liên tục, format: HĐ/YYYY/NNNNN
+
     private Payment() { } // EF Core
 
     public static Payment Create(
@@ -77,6 +84,30 @@ public class Payment
         if (Status is not (PaymentStatus.Pending or PaymentStatus.Processing))
             throw new DomainException($"Cannot cancel payment in status '{Status}'.");
         Status = PaymentStatus.Failed;
+        UpdatedAt = DateTime.Now;
+    }
+
+    /// <summary>
+    /// Complete a CASH payment in one step (at cashier counter).
+    /// Validates amount received ≥ total, calculates change automatically.
+    /// </summary>
+    public void CompleteCash(decimal amountReceived, string cashierId, Guid cashSessionId, string receiptNumber)
+    {
+        if (Method != PaymentMethod.Cash)
+            throw new DomainException($"CompleteCash only valid for Cash payments, got '{Method}'.");
+        if (Status != PaymentStatus.Pending)
+            throw new DomainException($"Cannot complete cash payment in status '{Status}'.");
+        if (amountReceived < Amount)
+            throw new DomainException($"Amount received ({amountReceived}) is less than total ({Amount}).");
+
+        AmountReceived = amountReceived;
+        ChangeReturned = amountReceived - Amount;
+        CashierId = cashierId;
+        CashSessionId = cashSessionId;
+        ReceiptNumber = receiptNumber;
+        TransactionId = receiptNumber; // Use receipt as transaction reference
+        Status = PaymentStatus.Completed;
+        PaidAt = DateTime.Now;
         UpdatedAt = DateTime.Now;
     }
 

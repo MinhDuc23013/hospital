@@ -10,10 +10,20 @@ import type {
 export const adminApi = {
   listUsers: (search?: string, page = 1, pageSize = 20) =>
     api
-      .get<UserListResponse>(ENDPOINTS.AUTH_USERS, {
+      .get<any>(ENDPOINTS.AUTH_USERS, {
         params: { search, page, pageSize },
       })
-      .then(r => r.data),
+      .then(r => {
+        // API may return either { data, pagination } or { data, page, pageSize }
+        const body = r.data;
+        const users: KeycloakUser[] = body.data ?? [];
+        const pagination = body.pagination ?? {
+          total: users.length,
+          page: body.page ?? page,
+          pageSize: body.pageSize ?? pageSize,
+        };
+        return { data: users, pagination } as UserListResponse;
+      }),
 
   getUser: (userId: string) =>
     api.get<KeycloakUser>(`${ENDPOINTS.AUTH_USERS}/${userId}`).then(r => r.data),

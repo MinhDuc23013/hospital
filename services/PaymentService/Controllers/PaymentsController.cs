@@ -76,6 +76,16 @@ public class PaymentsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Complete a CASH payment at cashier counter — one-step flow (no external provider).</summary>
+    [HttpPost("{id:guid}/complete-cash")]
+    public async Task<ActionResult<PaymentDto>> CompleteCash(
+        Guid id, [FromBody] CompleteCashRequest body, CancellationToken ct)
+    {
+        var result = await _mediator.Send(
+            new CompleteCashPaymentCommand(id, body.AmountReceived, body.CashierId, body.CashSessionId), ct);
+        return Ok(result);
+    }
+
     [HttpPost("{id:guid}/refund")]
     public async Task<ActionResult<PaymentDto>> Refund(Guid id, CancellationToken ct)
     {
@@ -102,3 +112,6 @@ public class PaymentsController : ControllerBase
 
 /// <summary>Request body for external payment completion.</summary>
 public record CompletePaymentRequest(string TransactionId);
+
+/// <summary>Request body for cash payment completion at cashier counter.</summary>
+public record CompleteCashRequest(decimal AmountReceived, string CashierId, Guid CashSessionId);

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useAdminUsers, useDeleteAdminUser, useResetPassword } from './use-admin-users';
+import { useAdminUsers, useDeleteAdminUser } from './use-admin-users';
 import { UserFormModal } from './UserFormModal';
+import { ResetPasswordModal } from './ResetPasswordModal';
 import type { KeycloakUser } from '../../shared/types/admin';
 
 export default function AdminUsersPage() {
@@ -9,10 +10,10 @@ export default function AdminUsersPage() {
   const [appliedSearch, setAppliedSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editTarget, setEditTarget] = useState<KeycloakUser | null>(null);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<KeycloakUser | null>(null);
 
   const { data, isLoading, isError } = useAdminUsers(appliedSearch || undefined, page, 20);
   const deleteMutation = useDeleteAdminUser();
-  const resetPasswordMutation = useResetPassword();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,14 +26,6 @@ export default function AdminUsersPage() {
     deleteMutation.mutate(user.id);
   };
 
-  const handleResetPassword = (user: KeycloakUser) => {
-    const newPassword = prompt(`Enter new password for ${user.email}:`);
-    if (!newPassword || newPassword.length < 6) {
-      alert('Password must be at least 6 characters.');
-      return;
-    }
-    resetPasswordMutation.mutate({ userId: user.id, newPassword });
-  };
 
   return (
     <div>
@@ -95,7 +88,7 @@ export default function AdminUsersPage() {
                       <div className="flex gap-2">
                         <button onClick={() => setEditTarget(u)}
                           className="text-blue-600 hover:underline text-xs">Edit</button>
-                        <button onClick={() => handleResetPassword(u)}
+                        <button onClick={() => setResetPasswordTarget(u)}
                           className="text-yellow-600 hover:underline text-xs">Reset PW</button>
                         <button onClick={() => handleDelete(u)}
                           disabled={deleteMutation.isPending}
@@ -128,6 +121,12 @@ export default function AdminUsersPage() {
 
       {showCreate && <UserFormModal mode="create" onClose={() => setShowCreate(false)} />}
       {editTarget && <UserFormModal mode="edit" user={editTarget} onClose={() => setEditTarget(null)} />}
+      {resetPasswordTarget && (
+        <ResetPasswordModal
+          user={resetPasswordTarget}
+          onClose={() => setResetPasswordTarget(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useAuth } from '../../auth/useAuth';
 import { useDashboard } from './use-dashboard';
+import PatientDashboard from './PatientDashboard';
 
 const formatVND = (amount: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
@@ -20,7 +21,15 @@ function StatCard({ label, value, color }: StatCardProps) {
 }
 
 export default function DashboardPage() {
-  const { fullName, roles } = useAuth();
+  const { fullName, roles, hasRole } = useAuth();
+
+  // Patients see a dedicated dashboard with features oriented to them
+  const isPatient = hasRole('patient') && !hasRole('admin', 'doctor', 'receptionist', 'nurse');
+  if (isPatient) {
+    return <PatientDashboard />;
+  }
+
+  // Staff dashboard (admin / doctor / receptionist / nurse)
   const { data, isLoading, isError } = useDashboard();
 
   return (

@@ -4,7 +4,9 @@ import type {
   Appointment,
   AppointmentListResponse,
   BookAppointmentPayload,
+  DoctorScheduleListItem,
   ScheduleAppointmentPayload,
+  TimeSlot,
 } from '../../shared/types/appointment';
 
 export const appointmentApi = {
@@ -29,4 +31,20 @@ export const appointmentApi = {
 
   complete: (id: string) =>
     api.post<Appointment>(`${ENDPOINTS.APPOINTMENTS}/${id}/complete`).then(r => r.data),
+
+  // Helper: list doctor schedules (optionally filtered by doctorId)
+  listDoctorSchedules: (doctorId?: string) =>
+    api
+      .get<{ data: DoctorScheduleListItem[] } | DoctorScheduleListItem[]>(
+        ENDPOINTS.DOCTOR_SCHEDULES,
+        { params: { doctorId, pageSize: 50 } },
+      )
+      .then(r => {
+        const body = r.data as any;
+        return (body.data ?? body) as DoctorScheduleListItem[];
+      }),
+
+  // Helper: get ALL slots for a schedule (both Available and booked)
+  listScheduleSlots: (scheduleId: string) =>
+    api.get<TimeSlot[]>(`${ENDPOINTS.DOCTOR_SCHEDULES}/${scheduleId}/slots`).then(r => r.data),
 };

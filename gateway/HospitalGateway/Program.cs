@@ -32,6 +32,16 @@ builder.Services.AddGatewayRateLimiting();
 // Health checks
 builder.Services.AddHealthChecks();
 
+// CORS for frontend origins
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy => policy
+        .WithOrigins("http://localhost:3000", "http://localhost:3100", "http://localhost:3200", "http://localhost:3400")
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials());
+});
+
 // MVC controllers — used for gateway-owned aggregate endpoints (e.g. booking-details)
 builder.Services.AddControllers();
 
@@ -53,6 +63,11 @@ builder.Services.AddHttpClient("aggregation", c => c.Timeout = TimeSpan.FromSeco
 // Booking aggregation service
 builder.Services.AddScoped<BookingAggregationService>();
 
+// Redis for login brute-force protection
+var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "redis:6379";
+builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(_ =>
+    StackExchange.Redis.ConnectionMultiplexer.Connect(redisConn));
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -64,6 +79,7 @@ if (app.Environment.IsDevelopment())
 // Middleware pipeline order matters
 app.UseHttpMetrics();
 app.UseSerilogRequestLogging();
+app.UseCors();                           // before auth — let preflight OPTIONS pass
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();

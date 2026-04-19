@@ -10,9 +10,22 @@ volumes:
   esdata:
   redisdata:
   keycloakdata:
+  keycloak-pgdata:
   seqdata:
 
 services:
+  # MailHog — dev SMTP server (captures emails, no real delivery)
+  # UI at http://localhost:8025 to view emails sent by Keycloak etc.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: hospital-mailhog
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"   # SMTP
+      - "${MAILHOG_UI_PORT:-8025}:8025"     # Web UI
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
   postgres:
     image: postgres:15-alpine
     container_name: hospital-postgres
@@ -147,6 +160,28 @@ services:
     networks:
       - hospital-network
 
+  # Dedicated PostgreSQL for Keycloak — isolated from app data
+  # Production: replace with managed RDS (encrypted at rest + TLS in transit)
+  keycloak-db:
+    image: postgres:15-alpine
+    container_name: hospital-keycloak-db
+    environment:
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_pw_change_me}
+      POSTGRES_DB: keycloak
+    ports:
+      - "${KEYCLOAK_DB_PORT:-5434}:5432"
+    volumes:
+      - keycloak-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-keycloak} -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
   keycloak:
     image: quay.io/keycloak/keycloak:22.0
     container_name: hospital-keycloak
@@ -154,18 +189,28 @@ services:
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_password_change_me}
-      KC_DB: dev-file
+      # PostgreSQL backend (production pattern — replace JDBC URL with RDS endpoint)
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_pw_change_me}
+      # Performance tuning for PostgreSQL backend
+      KC_DB_POOL_INITIAL_SIZE: 5
+      KC_DB_POOL_MIN_SIZE: 5
+      KC_DB_POOL_MAX_SIZE: 20
     ports:
       - "${KEYCLOAK_PORT:-8080}:8080"
     volumes:
-      - keycloakdata:/opt/keycloak/data
       - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 2>/dev/null && echo -e 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
       interval: 20s
       timeout: 10s
       retries: 10
-      start_period: 60s
+      start_period: 90s
     restart: unless-stopped
     networks:
       - hospital-network
@@ -329,6 +374,10 @@ services:
       - ASPNETCORE_URLS=http://+:5084
       - Keycloak__Authority=http://keycloak:8080/realms/hospital
       - Keycloak__Audience=hospital-gateway
+      - Keycloak__AdminUrl=http://keycloak:8080
+      - Keycloak__AdminUser=${KEYCLOAK_ADMIN:-admin}
+      - Keycloak__AdminPassword=${KEYCLOAK_ADMIN_PASSWORD:-admin_password_change_me}
+      - Redis__ConnectionString=redis:6379
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
       - Jaeger__Endpoint=http://jaeger:4317
@@ -357,6 +406,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5001
+
       - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
       - Kafka__BootstrapServers=kafka:9092
       - RabbitMQ__HostName=rabbitmq
@@ -386,13 +436,13 @@ services:
     build:
       context: .
       dockerfile: services/AppointmentService/Dockerfile
-    container_name: appointment-service
-    ports:
-      - "5002:5002"
+    deploy:
+      replicas: 2
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5002
       - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
+
       - Kafka__BootstrapServers=kafka:9092
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__User=${RABBITMQ_USER:-guest}
@@ -597,6 +647,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5007
+
       - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
       - Kafka__BootstrapServers=kafka:9092
       - Services__AuthService=http://auth-service:5009
@@ -628,6 +679,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5008
+
       - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
       - Kafka__BootstrapServers=kafka:9092
       - Services__AppointmentService=http://appointment-service:5002
@@ -722,7 +774,7 @@ services:
       dockerfile: Dockerfile
     container_name: hrm-frontend
     ports:
-      - "${HRM_FRONTEND_PORT:-3000}:80"
+      - "${HRM_FRONTEND_PORT:-3400}:80"
     depends_on:
       hospital-gateway:
         condition: service_healthy

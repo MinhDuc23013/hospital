@@ -1,4 +1,6 @@
 import keycloak from './keycloak';
+import { clearSession } from './session';
+import { useAuthStore } from '../store/authStore';
 
 export type Role = 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'receptionist' | 'patient';
 
@@ -9,7 +11,11 @@ export function useAuth() {
 
   const hasRole = (...required: Role[]) => required.some(r => roles.includes(r));
 
-  const logout = () => keycloak.logout({ redirectUri: window.location.origin });
+  const logout = () => {
+    clearSession(keycloak);
+    useAuthStore.getState().setAuthenticated(false);
+    window.location.href = '/login';
+  };
 
   return {
     token,

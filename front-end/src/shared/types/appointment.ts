@@ -12,10 +12,37 @@ export interface Appointment {
 export interface BookAppointmentPayload {
   patientId: string;
   doctorId: string;
+  scheduleId: string;
+  slotId: string;
   scheduledTime: string;
   durationMinutes: number;
+  paymentAmount: number;
+  paymentMethod: 'Cash' | 'Card' | 'Insurance' | 'BankTransfer';
+  currency?: string;
   notes?: string;
-  paymentMethod: 'Cash' | 'Card' | 'Insurance';
+}
+
+export interface DoctorScheduleListItem {
+  id: string;
+  doctorId: string;
+  doctorName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes: number;
+  totalSlots: number;
+  availableSlots: number;
+  status: string;
+}
+
+export interface TimeSlot {
+  id: string;
+  scheduleId: string;
+  startTime: string;
+  endTime: string;
+  status: 'Available' | 'Reserved' | 'Confirmed' | number;
+  patientId?: string;
+  appointmentId?: string;
 }
 
 export interface ScheduleAppointmentPayload {
