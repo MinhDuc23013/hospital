@@ -1,5 +1,6 @@
 using AppointmentService.Application.Saga;
 using AppointmentService.Domain.Enums;
+using AppointmentService.Infrastructure.Persistence;
 using AppointmentService.Infrastructure.Repositories;
 
 namespace AppointmentService.Infrastructure.BackgroundJobs;
@@ -44,16 +45,31 @@ public class PaymentTimeoutWorker : BackgroundService
     private async Task CheckExpiredPaymentsAsync(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppointmentDbContext>();
         var sagaRepo = scope.ServiceProvider.GetRequiredService<IBookingSagaRepository>();
         var orchestrator = scope.ServiceProvider.GetRequiredService<BookingSagaOrchestrator>();
 
+        // Pessimistic row lock held for the whole batch — replica khác sẽ skip saga đã claim.
+        // Lock release khi transaction commit/rollback, sau toàn bộ compensate HTTP calls + SaveChanges.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
         var cutoff = DateTime.Now.Subtract(PaymentTimeout);
         var expiredSagas = await sagaRepo.GetByStepOlderThanAsync(BookingSagaStep.AwaitingPayment, cutoff, ct);
+
+        if (expiredSagas.Count == 0)
+        {
+            await tx.CommitAsync(ct);
+            return;
+        }
+
+        _logger.LogInformation("PaymentTimeoutWorker claimed {Count} expired sagas", expiredSagas.Count);
 
         foreach (var saga in expiredSagas)
         {
             _logger.LogWarning("Saga {SagaId} payment timed out (created {CreatedAt})", saga.Id, saga.CreatedAt);
             await orchestrator.CancelExpiredAsync(saga.Id, ct);
         }
+
+        await tx.CommitAsync(ct);
     }
 }

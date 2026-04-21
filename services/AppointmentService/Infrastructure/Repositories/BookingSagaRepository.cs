@@ -26,9 +26,22 @@ public class BookingSagaRepository : IBookingSagaRepository
     public Task<BookingSaga?> GetByPaymentIdAsync(Guid paymentId, CancellationToken ct = default)
         => _context.BookingSagas.FirstOrDefaultAsync(s => s.PaymentId == paymentId, ct);
 
+    /// <summary>
+    /// Fetches sagas stuck at a given step past a cutoff, applying a pessimistic
+    /// row lock (FOR UPDATE SKIP LOCKED) so only one replica processes each row.
+    /// MUST be called inside an open DB transaction — otherwise the lock is released
+    /// immediately and parallel workers will duplicate compensation.
+    /// </summary>
     public Task<List<BookingSaga>> GetByStepOlderThanAsync(BookingSagaStep step, DateTime cutoff, CancellationToken ct = default)
         => _context.BookingSagas
-            .Where(s => s.CurrentStep == step && s.UpdatedAt <= cutoff)
+            .FromSqlRaw(
+                @"SELECT * FROM booking_sagas
+                  WHERE ""CurrentStep"" = {0}
+                    AND ""UpdatedAt"" <= {1}
+                  ORDER BY ""UpdatedAt""
+                  LIMIT 50
+                  FOR UPDATE SKIP LOCKED",
+                step.ToString(), cutoff)
             .ToListAsync(ct);
 
     public Task AddAsync(BookingSaga saga, CancellationToken ct = default)

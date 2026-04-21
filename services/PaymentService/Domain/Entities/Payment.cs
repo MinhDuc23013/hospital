@@ -111,9 +111,13 @@ public class Payment
         UpdatedAt = DateTime.Now;
     }
 
-    /// <summary>Refund a completed payment.</summary>
+    /// <summary>
+    /// Refund a completed payment. Idempotent — re-refunding an already-Refunded
+    /// payment is a no-op so retry workers on 2 replicas cannot double-refund.
+    /// </summary>
     public void Refund()
     {
+        if (Status == PaymentStatus.Refunded) return; // idempotent guard
         if (Status != PaymentStatus.Completed)
             throw new DomainException($"Cannot refund payment in status '{Status}'. Only Completed payments can be refunded.");
         Status = PaymentStatus.Refunded;

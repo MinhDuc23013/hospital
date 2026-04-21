@@ -54,13 +54,25 @@ public class OutboxPublishWorker<TDbContext> : BackgroundService where TDbContex
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TDbContext>();
 
+        // Pessimistic row lock: FOR UPDATE SKIP LOCKED — replica khác sẽ bỏ qua row đã lock.
+        // Lock tồn tại đến khi transaction commit/rollback, bao trọn Kafka publish + SaveChanges.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
         var pending = await db.Set<EventOutbox>()
-            .Where(e => !e.IsSent && e.RetryCount < MaxRetries)
-            .OrderBy(e => e.CreatedAt)
-            .Take(BatchSize)
+            .FromSqlRaw(
+                @"SELECT * FROM event_outbox
+                  WHERE ""IsSent"" = false AND ""RetryCount"" < {0}
+                  ORDER BY ""CreatedAt""
+                  LIMIT {1}
+                  FOR UPDATE SKIP LOCKED",
+                MaxRetries, BatchSize)
             .ToListAsync(ct);
 
-        if (pending.Count == 0) return;
+        if (pending.Count == 0)
+        {
+            await tx.CommitAsync(ct);
+            return;
+        }
 
         _logger.LogInformation("OutboxPublishWorker processing {Count} pending events", pending.Count);
 
@@ -98,5 +110,6 @@ public class OutboxPublishWorker<TDbContext> : BackgroundService where TDbContex
         }
 
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
     }
 }

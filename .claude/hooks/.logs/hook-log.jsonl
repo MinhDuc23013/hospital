@@ -700,3 +700,6 @@
 {"ts":"2026-04-18T07:31:47.884Z","hook":"scout-block","tool":"Bash","dur":12,"status":"ok","exit":0,"error":""}
 {"ts":"2026-04-18T08:19:03.890Z","hook":"scout-block","tool":"Bash","dur":3,"status":"ok","exit":0,"error":""}
 {"ts":"2026-04-18T08:19:15.338Z","hook":"scout-block","tool":"Bash","dur":4,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-21T14:45:37.731Z","hook":"scout-block","tool":"Glob","dur":6,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-21T14:49:02.033Z","hook":"scout-block","tool":"Glob","dur":4,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-21T14:49:17.814Z","hook":"scout-block","tool":"Glob","dur":4,"status":"ok","exit":0,"error":""}

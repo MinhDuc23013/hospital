@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AppointmentService.Infrastructure.HttpClients;
+using AppointmentService.Infrastructure.Persistence;
 using AppointmentService.Infrastructure.Repositories;
 
 namespace AppointmentService.Infrastructure.BackgroundJobs;
@@ -42,13 +43,22 @@ public class CompensationRetryWorker : BackgroundService
     private async Task ProcessPendingCompensations(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppointmentDbContext>();
         var outboxRepo = scope.ServiceProvider.GetRequiredService<ICompensationOutboxRepository>();
         var scheduleClient = scope.ServiceProvider.GetRequiredService<DoctorScheduleServiceClient>();
         var paymentClient = scope.ServiceProvider.GetRequiredService<PaymentServiceClient>();
         var appointmentRepo = scope.ServiceProvider.GetRequiredService<IAppointmentRepository>();
 
+        // Row lock (FOR UPDATE SKIP LOCKED) — 2 replica chia nhau batch, không double-refund/release.
+        // Lock giữ qua toàn bộ HTTP retry + SaveChanges — release khi commit.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
         var pending = await outboxRepo.GetPendingAsync(batchSize: 20, ct);
-        if (pending.Count == 0) return;
+        if (pending.Count == 0)
+        {
+            await tx.CommitAsync(ct);
+            return;
+        }
 
         _logger.LogInformation("CompensationRetryWorker processing {Count} pending items", pending.Count);
 
@@ -84,6 +94,7 @@ public class CompensationRetryWorker : BackgroundService
         }
 
         await outboxRepo.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
     }
 
     private static async Task<bool> RetryReleaseSlot(
