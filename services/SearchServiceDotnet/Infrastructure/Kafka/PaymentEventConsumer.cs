@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Confluent.Kafka;
 using Elastic.Clients.Elasticsearch;
+using HospitalShared.Kafka;
 using SearchServiceDotnet.Application.Models;
 
 namespace SearchServiceDotnet.Infrastructure.Kafka;
@@ -8,17 +9,19 @@ namespace SearchServiceDotnet.Infrastructure.Kafka;
 /// <summary>
 /// BackgroundService that consumes hospital.payment-completed Kafka topic
 /// and indexes payment documents into Elasticsearch.
-/// Consumer group: search-service
+/// Consumer group: search-service. Poison messages ship to hospital.payment-completed.dlq.
 /// </summary>
 public class PaymentEventConsumer : BackgroundService
 {
     private readonly IConfiguration _configuration;
     private readonly ElasticsearchClient _esClient;
+    private readonly KafkaDlqPublisher _dlq;
     private readonly ILogger<PaymentEventConsumer> _logger;
 
     private const string PaymentIndex    = "hospital-payments";
     private const string ConsumerGroup   = "search-service";
     private const string TopicCompleted  = "hospital.payment-completed";
+    private const int MaxAttempts        = 3;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -28,10 +31,12 @@ public class PaymentEventConsumer : BackgroundService
     public PaymentEventConsumer(
         IConfiguration configuration,
         ElasticsearchClient esClient,
+        KafkaDlqPublisher dlq,
         ILogger<PaymentEventConsumer> logger)
     {
         _configuration = configuration;
         _esClient      = esClient;
+        _dlq           = dlq;
         _logger        = logger;
     }
 
@@ -77,8 +82,17 @@ public class PaymentEventConsumer : BackgroundService
 
                 if (result?.Message?.Value is null) continue;
 
-                await HandleMessageAsync(result.Topic, result.Message.Value, ct);
-                consumer.Commit(result);
+                var handled = await KafkaConsumerRetryHelper.HandleWithDlqAsync(
+                    result,
+                    handler: innerCt => HandleMessageAsync(result.Topic, result.Message.Value, innerCt),
+                    _dlq,
+                    ConsumerGroup,
+                    _logger,
+                    ct,
+                    maxAttempts: MaxAttempts);
+
+                if (handled)
+                    consumer.Commit(result);
             }
         }
         catch (OperationCanceledException)
@@ -93,53 +107,37 @@ public class PaymentEventConsumer : BackgroundService
 
     private async Task HandleMessageAsync(string topic, string json, CancellationToken ct)
     {
-        try
+        var payload = JsonSerializer.Deserialize<PaymentPayload>(json, JsonOpts)
+            ?? throw new InvalidOperationException($"Null payload on topic {topic}");
+
+        var doc = new PaymentDocument
         {
-            var payload = JsonSerializer.Deserialize<PaymentPayload>(json, JsonOpts);
-            if (payload is null)
-            {
-                _logger.LogWarning("Received null payload on topic {Topic}", topic);
-                return;
-            }
+            PaymentId     = payload.PaymentId     ?? string.Empty,
+            AppointmentId = payload.AppointmentId ?? string.Empty,
+            PatientId     = payload.PatientId     ?? string.Empty,
+            Amount        = payload.Amount,
+            Currency      = payload.Currency      ?? "VND",
+            Method        = payload.Method        ?? string.Empty,
+            Status        = payload.Status        ?? string.Empty,
+            CreatedAt     = payload.CreatedAt
+        };
 
-            var doc = new PaymentDocument
-            {
-                PaymentId     = payload.PaymentId     ?? string.Empty,
-                AppointmentId = payload.AppointmentId ?? string.Empty,
-                PatientId     = payload.PatientId     ?? string.Empty,
-                Amount        = payload.Amount,
-                Currency      = payload.Currency      ?? "VND",
-                Method        = payload.Method        ?? string.Empty,
-                Status        = payload.Status        ?? string.Empty,
-                CreatedAt     = payload.CreatedAt
-            };
-
-            if (string.IsNullOrWhiteSpace(doc.PaymentId))
-            {
-                _logger.LogWarning("PaymentId missing in message from topic {Topic} — skipping", topic);
-                return;
-            }
-
-            var response = await _esClient.IndexAsync(doc, idx => idx
-                .Index(PaymentIndex)
-                .Id(doc.PaymentId), ct);
-
-            if (response.IsValidResponse)
-                _logger.LogInformation("Indexed payment {PaymentId} from topic {Topic}", doc.PaymentId, topic);
-            else
-                _logger.LogWarning("Failed to index payment {PaymentId}: {Debug}", doc.PaymentId, response.DebugInformation);
-        }
-        catch (JsonException ex)
+        if (string.IsNullOrWhiteSpace(doc.PaymentId))
         {
-            _logger.LogError(ex, "JSON deserialization failed for message on topic {Topic}", topic);
+            _logger.LogWarning("PaymentId missing on topic {Topic} — skipping (not DLQ-worthy)", topic);
+            return;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error handling message on topic {Topic}", topic);
-        }
+
+        var response = await _esClient.IndexAsync(doc, idx => idx
+            .Index(PaymentIndex)
+            .Id(doc.PaymentId), ct);
+
+        if (!response.IsValidResponse)
+            throw new InvalidOperationException(
+                $"Elasticsearch index failed for payment {doc.PaymentId}: {response.DebugInformation}");
+
+        _logger.LogInformation("Indexed payment {PaymentId} from topic {Topic}", doc.PaymentId, topic);
     }
-
-    // ── Internal DTO ─────────────────────────────────────────────────────────
 
     private sealed class PaymentPayload
     {

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Confluent.Kafka;
 using Elastic.Clients.Elasticsearch;
+using HospitalShared.Kafka;
 using SearchServiceDotnet.Application.Models;
 
 namespace SearchServiceDotnet.Infrastructure.Kafka;
@@ -8,17 +9,19 @@ namespace SearchServiceDotnet.Infrastructure.Kafka;
 /// <summary>
 /// BackgroundService that consumes hospital.appointment-scheduled Kafka topic
 /// and indexes appointment documents into Elasticsearch.
-/// Consumer group: search-service
+/// Consumer group: search-service. Poison messages ship to hospital.appointment-scheduled.dlq.
 /// </summary>
 public class AppointmentEventConsumer : BackgroundService
 {
     private readonly IConfiguration _configuration;
     private readonly ElasticsearchClient _esClient;
+    private readonly KafkaDlqPublisher _dlq;
     private readonly ILogger<AppointmentEventConsumer> _logger;
 
     private const string AppointmentIndex = "hospital-appointments";
     private const string ConsumerGroup    = "search-service";
     private const string TopicScheduled   = "hospital.appointment-scheduled";
+    private const int MaxAttempts         = 3;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -28,10 +31,12 @@ public class AppointmentEventConsumer : BackgroundService
     public AppointmentEventConsumer(
         IConfiguration configuration,
         ElasticsearchClient esClient,
+        KafkaDlqPublisher dlq,
         ILogger<AppointmentEventConsumer> logger)
     {
         _configuration = configuration;
         _esClient      = esClient;
+        _dlq           = dlq;
         _logger        = logger;
     }
 
@@ -77,8 +82,17 @@ public class AppointmentEventConsumer : BackgroundService
 
                 if (result?.Message?.Value is null) continue;
 
-                await HandleMessageAsync(result.Topic, result.Message.Value, ct);
-                consumer.Commit(result);
+                var handled = await KafkaConsumerRetryHelper.HandleWithDlqAsync(
+                    result,
+                    handler: innerCt => HandleMessageAsync(result.Topic, result.Message.Value, innerCt),
+                    _dlq,
+                    ConsumerGroup,
+                    _logger,
+                    ct,
+                    maxAttempts: MaxAttempts);
+
+                if (handled)
+                    consumer.Commit(result);
             }
         }
         catch (OperationCanceledException)
@@ -93,52 +107,36 @@ public class AppointmentEventConsumer : BackgroundService
 
     private async Task HandleMessageAsync(string topic, string json, CancellationToken ct)
     {
-        try
+        var payload = JsonSerializer.Deserialize<AppointmentPayload>(json, JsonOpts)
+            ?? throw new InvalidOperationException($"Null payload on topic {topic}");
+
+        var doc = new AppointmentDocument
         {
-            var payload = JsonSerializer.Deserialize<AppointmentPayload>(json, JsonOpts);
-            if (payload is null)
-            {
-                _logger.LogWarning("Received null payload on topic {Topic}", topic);
-                return;
-            }
+            AppointmentId  = payload.AppointmentId ?? string.Empty,
+            PatientId      = payload.PatientId     ?? string.Empty,
+            DoctorId       = payload.DoctorId      ?? string.Empty,
+            ScheduledTime  = payload.ScheduledTime,
+            DurationMinutes = payload.DurationMinutes,
+            Status         = payload.Status        ?? string.Empty,
+            CreatedAt      = payload.CreatedAt
+        };
 
-            var doc = new AppointmentDocument
-            {
-                AppointmentId  = payload.AppointmentId ?? string.Empty,
-                PatientId      = payload.PatientId     ?? string.Empty,
-                DoctorId       = payload.DoctorId      ?? string.Empty,
-                ScheduledTime  = payload.ScheduledTime,
-                DurationMinutes = payload.DurationMinutes,
-                Status         = payload.Status        ?? string.Empty,
-                CreatedAt      = payload.CreatedAt
-            };
-
-            if (string.IsNullOrWhiteSpace(doc.AppointmentId))
-            {
-                _logger.LogWarning("AppointmentId missing in message from topic {Topic} — skipping", topic);
-                return;
-            }
-
-            var response = await _esClient.IndexAsync(doc, idx => idx
-                .Index(AppointmentIndex)
-                .Id(doc.AppointmentId), ct);
-
-            if (response.IsValidResponse)
-                _logger.LogInformation("Indexed appointment {AppointmentId} from topic {Topic}", doc.AppointmentId, topic);
-            else
-                _logger.LogWarning("Failed to index appointment {AppointmentId}: {Debug}", doc.AppointmentId, response.DebugInformation);
-        }
-        catch (JsonException ex)
+        if (string.IsNullOrWhiteSpace(doc.AppointmentId))
         {
-            _logger.LogError(ex, "JSON deserialization failed for message on topic {Topic}", topic);
+            _logger.LogWarning("AppointmentId missing on topic {Topic} — skipping (not DLQ-worthy)", topic);
+            return;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error handling message on topic {Topic}", topic);
-        }
+
+        var response = await _esClient.IndexAsync(doc, idx => idx
+            .Index(AppointmentIndex)
+            .Id(doc.AppointmentId), ct);
+
+        if (!response.IsValidResponse)
+            throw new InvalidOperationException(
+                $"Elasticsearch index failed for appointment {doc.AppointmentId}: {response.DebugInformation}");
+
+        _logger.LogInformation("Indexed appointment {AppointmentId} from topic {Topic}", doc.AppointmentId, topic);
     }
-
-    // ── Internal DTO ─────────────────────────────────────────────────────────
 
     private sealed class AppointmentPayload
     {

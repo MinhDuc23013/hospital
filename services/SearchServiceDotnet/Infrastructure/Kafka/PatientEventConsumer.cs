@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Confluent.Kafka;
 using Elastic.Clients.Elasticsearch;
+using HospitalShared.Kafka;
 using SearchServiceDotnet.Application.Models;
 
 namespace SearchServiceDotnet.Infrastructure.Kafka;
@@ -8,18 +9,20 @@ namespace SearchServiceDotnet.Infrastructure.Kafka;
 /// <summary>
 /// BackgroundService that consumes hospital.patient-created and hospital.patient-updated
 /// Kafka topics and indexes patient documents into Elasticsearch.
-/// Consumer group: search-service
+/// Consumer group: search-service. Poison messages ship to {topic}.dlq.
 /// </summary>
 public class PatientEventConsumer : BackgroundService
 {
     private readonly IConfiguration _configuration;
     private readonly ElasticsearchClient _esClient;
+    private readonly KafkaDlqPublisher _dlq;
     private readonly ILogger<PatientEventConsumer> _logger;
 
     private const string PatientIndex      = "hospital-patients";
     private const string ConsumerGroup     = "search-service";
     private const string TopicCreated      = "hospital.patient-created";
     private const string TopicUpdated      = "hospital.patient-updated";
+    private const int MaxAttempts          = 3;
 
     // Accept both camelCase and PascalCase JSON property names
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -30,10 +33,12 @@ public class PatientEventConsumer : BackgroundService
     public PatientEventConsumer(
         IConfiguration configuration,
         ElasticsearchClient esClient,
+        KafkaDlqPublisher dlq,
         ILogger<PatientEventConsumer> logger)
     {
         _configuration = configuration;
         _esClient      = esClient;
+        _dlq           = dlq;
         _logger        = logger;
     }
 
@@ -80,8 +85,17 @@ public class PatientEventConsumer : BackgroundService
 
                 if (result?.Message?.Value is null) continue;
 
-                await HandleMessageAsync(result.Topic, result.Message.Value, ct);
-                consumer.Commit(result);
+                var handled = await KafkaConsumerRetryHelper.HandleWithDlqAsync(
+                    result,
+                    handler: innerCt => HandleMessageAsync(result.Topic, result.Message.Value, innerCt),
+                    _dlq,
+                    ConsumerGroup,
+                    _logger,
+                    ct,
+                    maxAttempts: MaxAttempts);
+
+                if (handled)
+                    consumer.Commit(result);
             }
         }
         catch (OperationCanceledException)
@@ -96,50 +110,34 @@ public class PatientEventConsumer : BackgroundService
 
     private async Task HandleMessageAsync(string topic, string json, CancellationToken ct)
     {
-        try
+        var payload = JsonSerializer.Deserialize<PatientPayload>(json, JsonOpts)
+            ?? throw new InvalidOperationException($"Null payload on topic {topic}");
+
+        var doc = new PatientDocument
         {
-            var payload = JsonSerializer.Deserialize<PatientPayload>(json, JsonOpts);
-            if (payload is null)
-            {
-                _logger.LogWarning("Received null payload on topic {Topic}", topic);
-                return;
-            }
+            PatientId = payload.PatientId ?? payload.Id ?? string.Empty,
+            FirstName = payload.FirstName ?? string.Empty,
+            LastName  = payload.LastName  ?? string.Empty,
+            Email     = payload.Email     ?? string.Empty,
+            CreatedAt = payload.CreatedAt == default ? DateTime.UtcNow : payload.CreatedAt
+        };
 
-            var doc = new PatientDocument
-            {
-                PatientId = payload.PatientId ?? payload.Id ?? string.Empty,
-                FirstName = payload.FirstName ?? string.Empty,
-                LastName  = payload.LastName  ?? string.Empty,
-                Email     = payload.Email     ?? string.Empty,
-                CreatedAt = payload.CreatedAt == default ? DateTime.UtcNow : payload.CreatedAt
-            };
-
-            if (string.IsNullOrWhiteSpace(doc.PatientId))
-            {
-                _logger.LogWarning("PatientId missing in message from topic {Topic} — skipping", topic);
-                return;
-            }
-
-            var response = await _esClient.IndexAsync(doc, idx => idx
-                .Index(PatientIndex)
-                .Id(doc.PatientId), ct);
-
-            if (response.IsValidResponse)
-                _logger.LogInformation("Indexed patient {PatientId} from topic {Topic}", doc.PatientId, topic);
-            else
-                _logger.LogWarning("Failed to index patient {PatientId}: {Debug}", doc.PatientId, response.DebugInformation);
-        }
-        catch (JsonException ex)
+        if (string.IsNullOrWhiteSpace(doc.PatientId))
         {
-            _logger.LogError(ex, "JSON deserialization failed for message on topic {Topic}", topic);
+            _logger.LogWarning("PatientId missing on topic {Topic} — skipping (not DLQ-worthy)", topic);
+            return;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error handling message on topic {Topic}", topic);
-        }
+
+        var response = await _esClient.IndexAsync(doc, idx => idx
+            .Index(PatientIndex)
+            .Id(doc.PatientId), ct);
+
+        if (!response.IsValidResponse)
+            throw new InvalidOperationException(
+                $"Elasticsearch index failed for patient {doc.PatientId}: {response.DebugInformation}");
+
+        _logger.LogInformation("Indexed patient {PatientId} from topic {Topic}", doc.PatientId, topic);
     }
-
-    // ── Internal DTO ─────────────────────────────────────────────────────────
 
     /// <summary>
     /// Accepts both camelCase and PascalCase, and both 'Id' and 'PatientId' field names

@@ -1,4 +1,6 @@
+using Confluent.Kafka;
 using HospitalShared.Auth;
+using HospitalShared.Kafka;
 using HospitalShared.Metrics;
 using HospitalShared.Tracing;
 using SearchServiceDotnet.Application.Services;
@@ -26,6 +28,15 @@ builder.Services.AddSingleton(_ => ElasticsearchClientFactory.Create(builder.Con
 
 // ── Index initializer (creates indexes on startup, non-fatal) ─────────────────
 builder.Services.AddHostedService<IndexInitializer>();
+
+// ── Kafka producer + DLQ publisher (shared across consumers) ──────────────────
+builder.Services.AddSingleton<IProducer<string, string>>(_ =>
+{
+    var kafkaBootstrap = builder.Configuration["Kafka:BootstrapServers"] ?? "kafka:9092";
+    var config = new ProducerConfig { BootstrapServers = kafkaBootstrap, MessageTimeoutMs = 15000 };
+    return new ProducerBuilder<string, string>(config).Build();
+});
+builder.Services.AddSingleton<KafkaDlqPublisher>();
 
 // ── Kafka consumers (BackgroundService) ───────────────────────────────────────
 builder.Services.AddHostedService<PatientEventConsumer>();

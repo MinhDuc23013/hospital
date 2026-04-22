@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Confluent.Kafka;
 using Elastic.Clients.Elasticsearch;
+using HospitalShared.Kafka;
 using SearchServiceDotnet.Application.Models;
 
 namespace SearchServiceDotnet.Infrastructure.Kafka;
@@ -8,17 +9,19 @@ namespace SearchServiceDotnet.Infrastructure.Kafka;
 /// <summary>
 /// BackgroundService that consumes hospital.slot-reserved Kafka topic
 /// and indexes slot documents into Elasticsearch.
-/// Consumer group: search-service
+/// Consumer group: search-service. Poison messages ship to hospital.slot-reserved.dlq.
 /// </summary>
 public class SlotEventConsumer : BackgroundService
 {
     private readonly IConfiguration _configuration;
     private readonly ElasticsearchClient _esClient;
+    private readonly KafkaDlqPublisher _dlq;
     private readonly ILogger<SlotEventConsumer> _logger;
 
     private const string SlotIndex      = "hospital-slots";
     private const string ConsumerGroup  = "search-service";
     private const string TopicReserved  = "hospital.slot-reserved";
+    private const int MaxAttempts       = 3;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -28,10 +31,12 @@ public class SlotEventConsumer : BackgroundService
     public SlotEventConsumer(
         IConfiguration configuration,
         ElasticsearchClient esClient,
+        KafkaDlqPublisher dlq,
         ILogger<SlotEventConsumer> logger)
     {
         _configuration = configuration;
         _esClient      = esClient;
+        _dlq           = dlq;
         _logger        = logger;
     }
 
@@ -77,8 +82,17 @@ public class SlotEventConsumer : BackgroundService
 
                 if (result?.Message?.Value is null) continue;
 
-                await HandleMessageAsync(result.Topic, result.Message.Value, ct);
-                consumer.Commit(result);
+                var handled = await KafkaConsumerRetryHelper.HandleWithDlqAsync(
+                    result,
+                    handler: innerCt => HandleMessageAsync(result.Topic, result.Message.Value, innerCt),
+                    _dlq,
+                    ConsumerGroup,
+                    _logger,
+                    ct,
+                    maxAttempts: MaxAttempts);
+
+                if (handled)
+                    consumer.Commit(result);
             }
         }
         catch (OperationCanceledException)
@@ -93,53 +107,37 @@ public class SlotEventConsumer : BackgroundService
 
     private async Task HandleMessageAsync(string topic, string json, CancellationToken ct)
     {
-        try
+        var payload = JsonSerializer.Deserialize<SlotPayload>(json, JsonOpts)
+            ?? throw new InvalidOperationException($"Null payload on topic {topic}");
+
+        var doc = new SlotDocument
         {
-            var payload = JsonSerializer.Deserialize<SlotPayload>(json, JsonOpts);
-            if (payload is null)
-            {
-                _logger.LogWarning("Received null payload on topic {Topic}", topic);
-                return;
-            }
+            SlotId          = payload.SlotId       ?? string.Empty,
+            ScheduleId      = payload.ScheduleId   ?? string.Empty,
+            DoctorId        = payload.DoctorId     ?? string.Empty,
+            PatientId       = payload.PatientId    ?? string.Empty,
+            ScheduledTime   = payload.ScheduledTime,
+            DurationMinutes = payload.DurationMinutes,
+            Status          = payload.Status       ?? string.Empty,
+            ReservedUntil   = payload.ReservedUntil
+        };
 
-            var doc = new SlotDocument
-            {
-                SlotId          = payload.SlotId       ?? string.Empty,
-                ScheduleId      = payload.ScheduleId   ?? string.Empty,
-                DoctorId        = payload.DoctorId     ?? string.Empty,
-                PatientId       = payload.PatientId    ?? string.Empty,
-                ScheduledTime   = payload.ScheduledTime,
-                DurationMinutes = payload.DurationMinutes,
-                Status          = payload.Status       ?? string.Empty,
-                ReservedUntil   = payload.ReservedUntil
-            };
-
-            if (string.IsNullOrWhiteSpace(doc.SlotId))
-            {
-                _logger.LogWarning("SlotId missing in message from topic {Topic} — skipping", topic);
-                return;
-            }
-
-            var response = await _esClient.IndexAsync(doc, idx => idx
-                .Index(SlotIndex)
-                .Id(doc.SlotId), ct);
-
-            if (response.IsValidResponse)
-                _logger.LogInformation("Indexed slot {SlotId} from topic {Topic}", doc.SlotId, topic);
-            else
-                _logger.LogWarning("Failed to index slot {SlotId}: {Debug}", doc.SlotId, response.DebugInformation);
-        }
-        catch (JsonException ex)
+        if (string.IsNullOrWhiteSpace(doc.SlotId))
         {
-            _logger.LogError(ex, "JSON deserialization failed for message on topic {Topic}", topic);
+            _logger.LogWarning("SlotId missing on topic {Topic} — skipping (not DLQ-worthy)", topic);
+            return;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error handling message on topic {Topic}", topic);
-        }
+
+        var response = await _esClient.IndexAsync(doc, idx => idx
+            .Index(SlotIndex)
+            .Id(doc.SlotId), ct);
+
+        if (!response.IsValidResponse)
+            throw new InvalidOperationException(
+                $"Elasticsearch index failed for slot {doc.SlotId}: {response.DebugInformation}");
+
+        _logger.LogInformation("Indexed slot {SlotId} from topic {Topic}", doc.SlotId, topic);
     }
-
-    // ── Internal DTO ─────────────────────────────────────────────────────────
 
     private sealed class SlotPayload
     {

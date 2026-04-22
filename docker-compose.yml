@@ -105,12 +105,17 @@ services:
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: hospital-rabbitmq
+    # Enable Prometheus plugin (port 15692) alongside management UI (15672).
+    command: >
+      sh -c "rabbitmq-plugins enable --offline rabbitmq_prometheus &&
+             docker-entrypoint.sh rabbitmq-server"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     ports:
       - "${RABBITMQ_PORT:-5672}:5672"
       - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+      - "15692:15692"
     volumes:
       - rabbitmqdata:/var/lib/rabbitmq
     healthcheck:
@@ -353,6 +358,22 @@ services:
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
     ports:
       - "${KAFKA_UI_PORT:-9080}:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  # Exports Kafka consumer-group lag + broker metrics to Prometheus (scraped on :9308/metrics).
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: hospital-kafka-exporter
+    command:
+      - '--kafka.server=kafka:9092'
+      - '--web.listen-address=:9308'
+    ports:
+      - "9308:9308"
     depends_on:
       kafka:
         condition: service_healthy

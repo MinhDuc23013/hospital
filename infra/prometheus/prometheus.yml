@@ -58,3 +58,14 @@ scrape_configs:
     static_configs:
       - targets: ['search-service:5006']
     metrics_path: '/metrics'
+
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+    metrics_path: '/metrics'
+
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+    # per-object endpoint emits queue-labelled metrics (needed for per-queue dashboards).
+    metrics_path: '/metrics/per-object'

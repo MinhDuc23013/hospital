@@ -84,6 +84,7 @@ builder.Services.AddScoped<IBookingSagaLogRepository, BookingSagaLogRepository>(
 builder.Services.AddScoped<ICompensationOutboxRepository, CompensationOutboxRepository>();
 builder.Services.AddScoped<EventPublisher>();
 builder.Services.AddSingleton<NotificationPublisher>();
+builder.Services.AddSingleton<HospitalShared.Kafka.KafkaDlqPublisher>();
 builder.Services.AddScoped<BookingSagaOrchestrator>();
 
 // Background workers
