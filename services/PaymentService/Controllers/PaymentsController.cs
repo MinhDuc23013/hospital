@@ -7,6 +7,7 @@ using PaymentService.Application.Commands;
 using PaymentService.Application.Queries;
 using PaymentService.Domain.Enums;
 using PaymentService.Infrastructure.Repositories;
+using Microsoft.Extensions.Configuration;
 
 namespace PaymentService.Controllers;
 
@@ -17,11 +18,13 @@ public class PaymentsController : ControllerBase
 {
     private readonly IMediator _mediator;
     private readonly IPaymentAuditLogRepository _logRepo;
+    private readonly IConfiguration _config;
 
-    public PaymentsController(IMediator mediator, IPaymentAuditLogRepository logRepo)
+    public PaymentsController(IMediator mediator, IPaymentAuditLogRepository logRepo, IConfiguration config)
     {
         _mediator = mediator;
         _logRepo = logRepo;
+        _config = config;
     }
 
     [HttpPost]
@@ -108,6 +111,20 @@ public class PaymentsController : ControllerBase
         var logs = await _logRepo.GetByPaymentIdAsync(id, ct);
         return Ok(logs);
     }
+
+    /// <summary>Anonymous webhook called by external payment provider after payment confirmation.</summary>
+    [AllowAnonymous]
+    [HttpPost("{id:guid}/provider-webhook")]
+    public async Task<ActionResult> ProviderWebhook(Guid id, [FromBody] ProviderWebhookPayload payload, CancellationToken ct)
+    {
+        var expectedSecret = _config["PaymentProvider:Secret"] ?? "dev-secret";
+        var receivedSecret = Request.Headers["X-Provider-Secret"].FirstOrDefault();
+        if (receivedSecret != expectedSecret)
+            return Unauthorized("Invalid provider secret");
+
+        var result = await _mediator.Send(new CompletePaymentCommand(id, payload.TransactionId), ct);
+        return Ok(result);
+    }
 }
 
 /// <summary>Request body for external payment completion.</summary>
@@ -115,3 +132,6 @@ public record CompletePaymentRequest(string TransactionId);
 
 /// <summary>Request body for cash payment completion at cashier counter.</summary>
 public record CompleteCashRequest(decimal AmountReceived, string CashierId, Guid CashSessionId);
+
+/// <summary>Payload sent by external payment provider via webhook after payment confirmation.</summary>
+public record ProviderWebhookPayload(string TransactionId);

@@ -59,6 +59,14 @@ builder.Services.AddHttpClient<AppointmentServiceClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(5);
 }).AddTokenForwarding().AddMetricsHandler();
 
+// FakePaymentProvider HTTP client
+builder.Services.AddHttpClient<IPaymentProviderClient, FakePaymentProviderClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Services:PaymentProvider"] ?? "http://localhost:5009");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+
 // Repositories & services
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentAuditLogRepository, PaymentAuditLogRepository>();

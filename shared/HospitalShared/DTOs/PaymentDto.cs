@@ -12,6 +12,7 @@ public class PaymentDto
     public string Status { get; set; } = "Pending";
     public string? TransactionId { get; set; }
     public string? Description { get; set; }
+    public string? CheckoutUrl { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? PaidAt { get; set; }
 }
