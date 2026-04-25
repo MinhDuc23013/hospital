@@ -12,6 +12,7 @@ public class OrchestratorDbContext : DbContext
 {
     public DbSet<BookingSaga> BookingSagas => Set<BookingSaga>();
     public DbSet<BookingSagaLog> BookingSagaLogs => Set<BookingSagaLog>();
+    public DbSet<PaymentSaga> PaymentSagas => Set<PaymentSaga>();
     public DbSet<CompensationOutbox> CompensationOutbox => Set<CompensationOutbox>();
     public DbSet<EventOutbox> EventOutbox => Set<EventOutbox>();
 
@@ -21,6 +22,7 @@ public class OrchestratorDbContext : DbContext
     {
         modelBuilder.ApplyConfiguration(new BookingSagaConfiguration());
         modelBuilder.ApplyConfiguration(new BookingSagaLogConfiguration());
+        modelBuilder.ApplyConfiguration(new PaymentSagaConfiguration());
         modelBuilder.ApplyConfiguration(new CompensationOutboxConfiguration());
         modelBuilder.ApplyConfiguration(new EventOutboxConfiguration());
     }

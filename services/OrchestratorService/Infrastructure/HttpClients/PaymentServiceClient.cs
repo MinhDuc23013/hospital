@@ -90,6 +90,30 @@ public class PaymentServiceClient
         }
     }
 
+    /// <summary>Fetch the invoice total for an appointment from PaymentService.</summary>
+    public async Task<decimal?> GetInvoiceTotalAsync(Guid appointmentId, Guid patientId, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = "api/payments/invoices";
+            _logger.LogInformation("GetInvoiceTotal calling {BaseAddress}{Url}", _http.BaseAddress, url);
+            var response = await _http.PostAsJsonAsync(url, new { appointmentId, patientId }, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("GetInvoiceTotal failed {StatusCode}: {Body}", response.StatusCode, body);
+                return null;
+            }
+            var invoice = await response.Content.ReadFromJsonAsync<InvoiceResult>(ct);
+            return invoice?.Total;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetInvoiceTotal exception for appointment {AppointmentId}", appointmentId);
+            return null;
+        }
+    }
+
     /// <summary>Refund a completed payment (compensation).</summary>
     public async Task<bool> RefundPaymentAsync(Guid paymentId, CancellationToken ct = default)
     {
@@ -105,4 +129,6 @@ public class PaymentServiceClient
             return false;
         }
     }
+
+    private record InvoiceResult(decimal Total, string Currency);
 }

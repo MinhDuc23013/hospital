@@ -112,7 +112,7 @@ public class PaymentsController : ControllerBase
         return Ok(logs);
     }
 
-    /// <summary>Anonymous webhook called by external payment provider after payment confirmation.</summary>
+    /// <summary>Anonymous webhook called by external payment provider after payment confirmation or failure.</summary>
     [AllowAnonymous]
     [HttpPost("{id:guid}/provider-webhook")]
     public async Task<ActionResult> ProviderWebhook(Guid id, [FromBody] ProviderWebhookPayload payload, CancellationToken ct)
@@ -122,8 +122,16 @@ public class PaymentsController : ControllerBase
         if (receivedSecret != expectedSecret)
             return Unauthorized("Invalid provider secret");
 
-        var result = await _mediator.Send(new CompletePaymentCommand(id, payload.TransactionId), ct);
-        return Ok(result);
+        if (payload.Success)
+        {
+            var result = await _mediator.Send(new CompletePaymentCommand(id, payload.TransactionId), ct);
+            return Ok(result);
+        }
+        else
+        {
+            var result = await _mediator.Send(new FailPaymentCommand(id), ct);
+            return Ok(result);
+        }
     }
 }
 
@@ -133,5 +141,5 @@ public record CompletePaymentRequest(string TransactionId);
 /// <summary>Request body for cash payment completion at cashier counter.</summary>
 public record CompleteCashRequest(decimal AmountReceived, string CashierId, Guid CashSessionId);
 
-/// <summary>Payload sent by external payment provider via webhook after payment confirmation.</summary>
-public record ProviderWebhookPayload(string TransactionId);
+/// <summary>Payload sent by external payment provider via webhook after payment confirmation or failure.</summary>
+public record ProviderWebhookPayload(string TransactionId, bool Success = true);

@@ -14,11 +14,16 @@ public class OrchestratorController : ControllerBase
 {
     private readonly IMediator _mediator;
     private readonly IBookingSagaLogRepository _logRepo;
+    private readonly IPaymentSagaRepository _paymentSagaRepo;
 
-    public OrchestratorController(IMediator mediator, IBookingSagaLogRepository logRepo)
+    public OrchestratorController(
+        IMediator mediator,
+        IBookingSagaLogRepository logRepo,
+        IPaymentSagaRepository paymentSagaRepo)
     {
         _mediator = mediator;
         _logRepo = logRepo;
+        _paymentSagaRepo = paymentSagaRepo;
     }
 
     /// <summary>
@@ -44,5 +49,32 @@ public class OrchestratorController : ControllerBase
     {
         var logs = await _logRepo.GetBySagaIdAsync(sagaId, ct);
         return Ok(logs);
+    }
+
+    /// <summary>
+    /// Initiate payment saga for an appointment.
+    /// Sync phase: validate invoice → create payment → process payment (get checkout URL).
+    /// Async phase: PaymentEventConsumer listens for provider outcome and updates saga state.
+    /// Returns 202 with checkout URL on success, or 422 if payment creation failed.
+    /// </summary>
+    [HttpPost("payment/initiate")]
+    public async Task<ActionResult<PaymentSagaResult>> InitiatePayment(
+        [FromBody] InitiatePaymentCommand command, CancellationToken ct)
+    {
+        var result = await _mediator.Send(command, ct);
+        return result.Status switch
+        {
+            "Processing" => Accepted((string?)null, result),
+            "Completed"  => Ok(result),
+            _ => UnprocessableEntity(result)
+        };
+    }
+
+    /// <summary>Get payment saga status by saga ID.</summary>
+    [HttpGet("payment/{sagaId:guid}")]
+    public async Task<ActionResult> GetPaymentSaga(Guid sagaId, CancellationToken ct)
+    {
+        var saga = await _paymentSagaRepo.GetByIdAsync(sagaId, ct);
+        return saga is null ? NotFound() : Ok(saga);
     }
 }

@@ -72,24 +72,33 @@ builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 }).AddTokenForwarding().AddMetricsHandler();
 
+builder.Services.AddHttpClient<PaymentServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008");
+    client.Timeout = TimeSpan.FromSeconds(10);
+}).AddTokenForwarding().AddMetricsHandler();
 
 // Repositories
 builder.Services.AddScoped<IBookingSagaRepository, BookingSagaRepository>();
 builder.Services.AddScoped<IBookingSagaLogRepository, BookingSagaLogRepository>();
 builder.Services.AddScoped<ICompensationOutboxRepository, CompensationOutboxRepository>();
+builder.Services.AddScoped<IPaymentSagaRepository, PaymentSagaRepository>();
 
 // Message bus
 builder.Services.AddScoped<EventPublisher>();
 builder.Services.AddSingleton<NotificationPublisher>();
 builder.Services.AddSingleton<HospitalShared.Kafka.KafkaDlqPublisher>();
 
-// Saga orchestrator
+// Saga orchestrators
 builder.Services.AddScoped<BookingSagaOrchestrator>();
+builder.Services.AddScoped<PaymentSagaOrchestrator>();
 
 // Background workers
 builder.Services.AddHostedService<CompensationRetryWorker>();
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<OrchestratorDbContext>>();
 builder.Services.AddHostedService<BookingAsyncPhaseConsumer>();
+builder.Services.AddHostedService<PaymentEventConsumer>();
 
 builder.Services.AddKeycloakAuth(builder.Configuration);
 builder.Services.AddControllers();
@@ -111,6 +120,39 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Orchestrator Service v1"));
+}
+
+// Ensure payment_sagas table exists (dev — use migrations in prod)
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<OrchestratorDbContext>();
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS payment_sagas (
+                ""Id""            uuid PRIMARY KEY,
+                ""AppointmentId"" uuid NOT NULL,
+                ""PatientId""     uuid NOT NULL,
+                ""Method""        varchar(50) NOT NULL,
+                ""Currency""      varchar(10) NOT NULL DEFAULT 'VND',
+                ""Amount""        numeric(18,2) NOT NULL DEFAULT 0,
+                ""PaymentId""     uuid NULL,
+                ""CheckoutUrl""   varchar(2000) NULL,
+                ""CurrentStep""   varchar(20) NOT NULL,
+                ""FailureReason"" varchar(1000) NULL,
+                ""RetryCount""    int NOT NULL DEFAULT 0,
+                ""CreatedAt""     timestamp NOT NULL DEFAULT NOW(),
+                ""UpdatedAt""     timestamp NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS ix_payment_sagas_appointment ON payment_sagas(""AppointmentId"");
+            CREATE INDEX IF NOT EXISTS ix_payment_sagas_payment ON payment_sagas(""PaymentId"");
+            CREATE INDEX IF NOT EXISTS ix_payment_sagas_step ON payment_sagas(""CurrentStep"");
+        ");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Failed to ensure payment_sagas schema — may already exist");
+    }
 }
 
 app.MapControllers();

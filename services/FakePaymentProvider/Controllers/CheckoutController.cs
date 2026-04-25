@@ -84,10 +84,24 @@ public class CheckoutController : ControllerBase
     }
 
     [HttpPost("{transactionId}/fail")]
-    public IActionResult Fail(string transactionId)
+    public async Task<IActionResult> Fail(string transactionId, CancellationToken ct)
     {
         var tx = _store.Get(transactionId);
         if (tx is null) return NotFound("Transaction not found");
+
+        // Notify PaymentService via webhook so it can publish PaymentFailedEvent
+        var client = _httpClientFactory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Provider-Secret", tx.ProviderSecret);
+        var payload = new { transactionId, success = false };
+        try
+        {
+            var response = await client.PostAsJsonAsync(tx.WebhookUrl, payload, ct);
+            _logger.LogInformation("Fail webhook {Url} responded {Status}", tx.WebhookUrl, response.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Fail webhook call to {Url} failed — continuing redirect", tx.WebhookUrl);
+        }
 
         _store.Remove(transactionId);
 
