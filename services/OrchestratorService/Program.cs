@@ -72,12 +72,6 @@ builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 }).AddTokenForwarding().AddMetricsHandler();
 
-builder.Services.AddHttpClient<PaymentServiceClient>(client =>
-{
-    client.BaseAddress = new Uri(
-        builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008");
-    client.Timeout = TimeSpan.FromSeconds(30);
-}).AddTokenForwarding().AddMetricsHandler();
 
 // Repositories
 builder.Services.AddScoped<IBookingSagaRepository, BookingSagaRepository>();
@@ -94,9 +88,7 @@ builder.Services.AddScoped<BookingSagaOrchestrator>();
 
 // Background workers
 builder.Services.AddHostedService<CompensationRetryWorker>();
-builder.Services.AddHostedService<PaymentTimeoutWorker>();
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<OrchestratorDbContext>>();
-builder.Services.AddHostedService<PaymentCompletedConsumer>();
 builder.Services.AddHostedService<BookingAsyncPhaseConsumer>();
 
 builder.Services.AddKeycloakAuth(builder.Configuration);

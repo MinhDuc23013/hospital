@@ -47,7 +47,6 @@ public class CompensationRetryWorker : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<OrchestratorDbContext>();
         var outboxRepo = scope.ServiceProvider.GetRequiredService<ICompensationOutboxRepository>();
         var scheduleClient = scope.ServiceProvider.GetRequiredService<DoctorScheduleServiceClient>();
-        var paymentClient = scope.ServiceProvider.GetRequiredService<PaymentServiceClient>();
         var appointmentClient = scope.ServiceProvider.GetRequiredService<AppointmentServiceClient>();
 
         // Row lock (FOR UPDATE SKIP LOCKED) — replicas share batch without double-refund/release.
@@ -69,8 +68,6 @@ public class CompensationRetryWorker : BackgroundService
                 var success = item.ActionType switch
                 {
                     "ReleaseSlot" => await RetryReleaseSlot(item, scheduleClient, ct),
-                    "RefundPayment" => await RetryRefundPayment(item, paymentClient, ct),
-                    // Cancel via AppointmentService HTTP — no direct DB access
                     "CancelAppointment" => await RetryCancelAppointment(item, appointmentClient, ct),
                     _ => throw new InvalidOperationException($"Unknown action: {item.ActionType}")
                 };
@@ -105,13 +102,6 @@ public class CompensationRetryWorker : BackgroundService
         return await client.ReleaseSlotAsync(payload.ScheduleId, payload.SlotId, ct);
     }
 
-    private static async Task<bool> RetryRefundPayment(
-        Domain.Entities.CompensationOutbox item, PaymentServiceClient client, CancellationToken ct)
-    {
-        var payload = JsonSerializer.Deserialize<RefundPaymentPayload>(item.Payload)!;
-        return await client.RefundPaymentAsync(payload.PaymentId, ct);
-    }
-
     private static async Task<bool> RetryCancelAppointment(
         Domain.Entities.CompensationOutbox item, AppointmentServiceClient client, CancellationToken ct)
     {
@@ -120,7 +110,5 @@ public class CompensationRetryWorker : BackgroundService
     }
 }
 
-// Payload records for JSON deserialization
 public record ReleaseSlotPayload(Guid ScheduleId, Guid SlotId);
-public record RefundPaymentPayload(Guid PaymentId);
 public record CancelAppointmentPayload(Guid AppointmentId);

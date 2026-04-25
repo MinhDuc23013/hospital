@@ -8,12 +8,6 @@ public enum BookingSagaStep
     AppointmentCreated = 1,
     SlotReserved = 2,           // Slot locked → sync phase complete, 202 returned
 
-    // ── Legacy payment flow (kept for backward compat) ───────────────────
-    PaymentCreated = 3,
-    SlotConfirmed = 4,
-    AwaitingPayment = 5,
-    PaymentCompleted = 6,
-
     // ── Async phase (background, triggered via Kafka after SlotReserved) ──
     BookingConfirmed = 7,       // Slot confirmed in DoctorScheduleService
     NotificationSent = 8,       // Notification published to RabbitMQ

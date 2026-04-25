@@ -33,11 +33,7 @@ public class OrchestratorController : ControllerBase
         var result = await _mediator.Send(command, ct);
         return result.Status switch
         {
-            "SlotReserved" => Accepted(
-                $"/api/orchestrator/book/{result.SagaId}/logs",
-                result),
-            "AwaitingPayment" or "PaymentCompleted" => CreatedAtAction(
-                nameof(GetBookingLogs), new { sagaId = result.SagaId }, result),
+            "SlotReserved" => Accepted($"/api/orchestrator/book/{result.SagaId}/logs", result),
             _ => UnprocessableEntity(result)
         };
     }

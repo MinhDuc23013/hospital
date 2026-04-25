@@ -18,13 +18,11 @@ public class BookAppointmentHandler : IRequestHandler<BookAppointmentCommand, Bo
             cmd.PatientId, cmd.DoctorId,
             cmd.ScheduleId, cmd.SlotId,
             cmd.ScheduledTime, cmd.DurationMinutes,
-            cmd.PaymentAmount, cmd.PaymentMethod, cmd.Currency,
             cmd.Notes, ct);
 
         return new BookAppointmentResult(
             saga.Id,
             saga.AppointmentId,
-            saga.PaymentId,
             saga.CurrentStep.ToString(),
             saga.FailureReason,
             Activity.Current?.TraceId.ToString());

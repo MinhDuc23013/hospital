@@ -27,7 +27,6 @@ public partial class BookingSagaOrchestrator
 
         // Guard: only process sagas waiting for async phase
         if (saga.CurrentStep is BookingSagaStep.Completed
-            or BookingSagaStep.PaymentCompleted
             or BookingSagaStep.Failed
             or BookingSagaStep.Compensating
             or BookingSagaStep.Compensated)

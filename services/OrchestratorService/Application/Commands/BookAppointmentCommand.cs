@@ -2,7 +2,7 @@ using MediatR;
 
 namespace OrchestratorService.Application.Commands;
 
-/// <summary>Command to trigger the full booking saga: create appointment → reserve slot → pay → confirm → notify.</summary>
+/// <summary>Command to trigger the booking saga: validate patient → create appointment → reserve slot → async confirm + notify + index.</summary>
 public record BookAppointmentCommand(
     Guid PatientId,
     string DoctorId,
@@ -10,17 +10,13 @@ public record BookAppointmentCommand(
     Guid SlotId,
     DateTime ScheduledTime,
     int DurationMinutes,
-    decimal PaymentAmount,
-    string PaymentMethod,
-    string Currency = "VND",
     string? Notes = null
 ) : IRequest<BookAppointmentResult>;
 
-/// <summary>Result of the booking saga with saga state and appointment details.</summary>
+/// <summary>Result of the booking saga sync phase.</summary>
 public record BookAppointmentResult(
     Guid SagaId,
     Guid? AppointmentId,
-    Guid? PaymentId,
     string Status,
     string? FailureReason,
     string? TraceId

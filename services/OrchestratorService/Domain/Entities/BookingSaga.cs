@@ -14,13 +14,10 @@ public class BookingSaga
     public Guid SlotId { get; private set; }
     public DateTime ScheduledTime { get; private set; }
     public int DurationMinutes { get; private set; }
-    public decimal PaymentAmount { get; private set; }
-    public string PaymentMethod { get; private set; } = string.Empty;
     public string? Notes { get; private set; }
 
     // Step results (populated as saga progresses)
     public Guid? AppointmentId { get; private set; }
-    public Guid? PaymentId { get; private set; }
 
     // State tracking
     public BookingSagaStep CurrentStep { get; private set; }
@@ -34,7 +31,7 @@ public class BookingSaga
         Guid patientId, string providerId,
         Guid scheduleId, Guid slotId,
         DateTime scheduledTime, int durationMinutes,
-        decimal paymentAmount, string paymentMethod, string? notes = null)
+        string? notes = null)
     {
         return new BookingSaga
         {
@@ -45,8 +42,6 @@ public class BookingSaga
             SlotId = slotId,
             ScheduledTime = scheduledTime,
             DurationMinutes = durationMinutes,
-            PaymentAmount = paymentAmount,
-            PaymentMethod = paymentMethod,
             Notes = notes,
             CurrentStep = BookingSagaStep.Started,
             CreatedAt = DateTime.Now,
@@ -61,16 +56,6 @@ public class BookingSaga
     }
 
     public void MarkSlotReserved() => AdvanceTo(BookingSagaStep.SlotReserved);
-
-    public void MarkPaymentCreated(Guid paymentId)
-    {
-        PaymentId = paymentId;
-        AdvanceTo(BookingSagaStep.PaymentCreated);
-    }
-
-    public void MarkSlotConfirmed() => AdvanceTo(BookingSagaStep.SlotConfirmed);
-    public void MarkAwaitingPayment() => AdvanceTo(BookingSagaStep.AwaitingPayment);
-    public void MarkCompleted() => AdvanceTo(BookingSagaStep.PaymentCompleted);
 
     // ── Async phase mark methods ─────────────────────────────────────────
     public void MarkBookingConfirmed() => AdvanceTo(BookingSagaStep.BookingConfirmed);

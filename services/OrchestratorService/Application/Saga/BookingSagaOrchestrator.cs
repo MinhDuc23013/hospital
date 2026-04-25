@@ -26,7 +26,6 @@ public partial class BookingSagaOrchestrator
     private readonly AppointmentServiceClient _appointmentClient;
     private readonly PatientServiceClient _patientClient;
     private readonly DoctorScheduleServiceClient _scheduleClient;
-    private readonly PaymentServiceClient _paymentClient;
     private readonly EventPublisher _events;
     private readonly NotificationPublisher _notifications;
     private readonly ILogger<BookingSagaOrchestrator> _logger;
@@ -41,7 +40,6 @@ public partial class BookingSagaOrchestrator
         AppointmentServiceClient appointmentClient,
         PatientServiceClient patientClient,
         DoctorScheduleServiceClient scheduleClient,
-        PaymentServiceClient paymentClient,
         EventPublisher events,
         NotificationPublisher notifications,
         ILogger<BookingSagaOrchestrator> logger)
@@ -52,7 +50,6 @@ public partial class BookingSagaOrchestrator
         _appointmentClient = appointmentClient;
         _patientClient = patientClient;
         _scheduleClient = scheduleClient;
-        _paymentClient = paymentClient;
         _events = events;
         _notifications = notifications;
         _logger = logger;
@@ -69,11 +66,10 @@ public partial class BookingSagaOrchestrator
         Guid patientId, string providerId,
         Guid scheduleId, Guid slotId,
         DateTime scheduledTime, int durationMinutes,
-        decimal paymentAmount, string paymentMethod, string currency,
         string? notes, CancellationToken ct)
     {
         var saga = BookingSaga.Create(patientId, providerId, scheduleId, slotId,
-            scheduledTime, durationMinutes, paymentAmount, paymentMethod, notes);
+            scheduledTime, durationMinutes, notes);
         await _sagaRepo.AddAsync(saga, ct);
         _logger.LogInformation("Saga {SagaId} started for patient {PatientId}", saga.Id, patientId);
 
@@ -151,69 +147,6 @@ public partial class BookingSagaOrchestrator
         _logger.LogDebug("Saga {SagaId} slot {SlotId} locked", saga.Id, saga.SlotId);
     }
 
-    // ── Legacy payment flow ────────────────────────────────────────────────
-
-    /// <summary>Complete saga after external payment webhook. Triggers notification.</summary>
-    public async Task CompleteAfterPaymentAsync(Guid sagaId, CancellationToken ct)
-    {
-        var saga = await _sagaRepo.GetByIdAsync(sagaId, ct)
-            ?? throw new SagaStepException($"Saga '{sagaId}' not found.");
-
-        if (saga.CurrentStep != BookingSagaStep.AwaitingPayment)
-        {
-            _logger.LogWarning("Saga {SagaId} not in AwaitingPayment (current: {Step}), skipping", sagaId, saga.CurrentStep);
-            return;
-        }
-
-        if (saga.PaymentId.HasValue)
-        {
-            await _paymentClient.ProcessPaymentAsync(saga.PaymentId.Value, ct);
-            var txId = $"SAGA-{saga.Id}";
-            var completed = await _paymentClient.CompletePaymentAsync(saga.PaymentId.Value, txId, ct);
-            if (completed is null)
-                _logger.LogWarning("Saga {SagaId} failed to complete payment {PaymentId}", sagaId, saga.PaymentId);
-        }
-
-        saga.MarkCompleted();
-        await _sagaRepo.SaveChangesAsync(ct);
-        await LogStepAsync(saga, "AwaitingPayment", "PaymentCompleted", "Payment confirmed", ct: ct);
-
-        // Confirm appointment via HTTP (no direct DB access)
-        if (saga.AppointmentId.HasValue)
-        {
-            var confirmed = await _appointmentClient.ConfirmAppointmentAsync(saga.AppointmentId.Value, ct);
-            if (!confirmed)
-                _logger.LogWarning("Saga {SagaId} failed to confirm appointment {AppointmentId} after payment",
-                    sagaId, saga.AppointmentId);
-
-            var scheduledEvent = new AppointmentScheduledEvent
-            {
-                AppointmentId = saga.AppointmentId.Value,
-                PatientId = saga.PatientId,
-                DoctorId = saga.DoctorId,
-                ScheduledTime = saga.ScheduledTime,
-                DurationMinutes = saga.DurationMinutes
-            };
-            await _events.PublishAsync(scheduledEvent, ct);
-            await _notifications.SendNotificationAsync(scheduledEvent, ct);
-        }
-
-        _logger.LogInformation("Saga {SagaId} completed after payment", sagaId);
-    }
-
-    /// <summary>Cancel booking if payment times out.</summary>
-    public async Task CancelExpiredAsync(Guid sagaId, CancellationToken ct)
-    {
-        var saga = await _sagaRepo.GetByIdAsync(sagaId, ct);
-        if (saga is null || saga.CurrentStep != BookingSagaStep.AwaitingPayment) return;
-
-        _logger.LogWarning("Saga {SagaId} payment timed out, compensating", sagaId);
-        saga.MarkFailed("Payment timed out");
-        await _sagaRepo.SaveChangesAsync(ct);
-        await LogStepAsync(saga, "AwaitingPayment", "Failed", "Payment timed out", ct: ct);
-        await CompensateAsync(saga, ct);
-    }
-
     // ── Compensation ────────────────────────────────────────────────────────
 
     internal async Task CompensateAsync(BookingSaga saga, CancellationToken ct)
@@ -221,17 +154,6 @@ public partial class BookingSagaOrchestrator
         saga.MarkCompensating();
         await _sagaRepo.SaveChangesAsync(ct);
         _logger.LogInformation("Saga {SagaId} compensating", saga.Id);
-
-        if (saga.PaymentId.HasValue)
-        {
-            var refunded = await RetryWithFallback(
-                saga, "RefundPayment",
-                () => _paymentClient.RefundPaymentAsync(saga.PaymentId.Value, ct),
-                JsonSerializer.Serialize(new { PaymentId = saga.PaymentId.Value }), ct);
-
-            await LogStepAsync(saga, "Compensating", "Compensating",
-                refunded ? $"Refunded payment {saga.PaymentId}" : $"Refund payment {saga.PaymentId} queued", ct: ct);
-        }
 
         if (saga.AppointmentId.HasValue)
         {
