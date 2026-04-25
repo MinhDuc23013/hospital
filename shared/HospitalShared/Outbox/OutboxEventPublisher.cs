@@ -52,6 +52,19 @@ public class OutboxEventPublisher
         _logger.LogInformation("Event {EventType} saved to outbox for topic {Topic}", typeof(T).Name, topic);
     }
 
+    /// <summary>
+    /// Add event to context WITHOUT saving. Caller must call SaveChangesAsync to persist.
+    /// Use this to batch the outbox write with other entity saves in one flush.
+    /// </summary>
+    public void StageEvent<T>(T @event) where T : class
+    {
+        var topic = GetTopicName<T>();
+        var key = Guid.NewGuid().ToString();
+        var value = JsonSerializer.Serialize(@event);
+        var outbox = EventOutbox.Create(topic, key, value, typeof(T).Name);
+        _dbContext.Set<EventOutbox>().Add(outbox);
+    }
+
     private static string GetTopicName<T>()
     {
         var name = typeof(T).Name.Replace("Event", "");

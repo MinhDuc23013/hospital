@@ -492,6 +492,45 @@ services:
     networks:
       - hospital-network
 
+  orchestrator-service:
+    build:
+      context: .
+      dockerfile: services/OrchestratorService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5010
+      - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
+      - Kafka__BootstrapServers=kafka:9092
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__User=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-guest}
+      - Services__PatientService=http://patient-service:5001
+      - Services__AppointmentService=http://appointment-service:5002
+      - Services__DoctorScheduleService=http://doctor-schedule-service:5007
+      - Services__PaymentService=http://payment-service:5008
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
+      - Seq__Url=http://seq:5341
+      - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      appointment-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5010 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
   medical-record-service:
     build:
       context: .

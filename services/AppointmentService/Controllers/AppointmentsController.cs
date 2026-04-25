@@ -1,6 +1,5 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Application.Queries;
-using AppointmentService.Infrastructure.Repositories;
 using HospitalShared.Auth;
 using HospitalShared.DTOs;
 using MediatR;
@@ -15,25 +14,13 @@ namespace AppointmentService.Controllers;
 public class AppointmentsController : ControllerBase
 {
     private readonly IMediator _mediator;
-    private readonly IBookingSagaLogRepository _logRepo;
 
-    public AppointmentsController(IMediator mediator, IBookingSagaLogRepository logRepo)
+    public AppointmentsController(IMediator mediator)
     {
         _mediator = mediator;
-        _logRepo = logRepo;
     }
 
-    /// <summary>Full booking saga: create appointment → reserve slot → pay → confirm → notify.</summary>
-    [HttpPost("book")]
-    public async Task<ActionResult<BookAppointmentResult>> Book(
-        [FromBody] BookAppointmentCommand command, CancellationToken ct)
-    {
-        var result = await _mediator.Send(command, ct);
-        if (result.Status is "AwaitingPayment" or "PaymentCompleted")
-            return CreatedAtAction(nameof(GetById), new { id = result.AppointmentId }, result);
-        return UnprocessableEntity(result);
-    }
-
+    /// <summary>Schedule a new appointment directly (no saga).</summary>
     [HttpPost]
     public async Task<ActionResult<AppointmentDto>> Schedule(
         [FromBody] ScheduleAppointmentCommand command, CancellationToken ct)
@@ -92,11 +79,11 @@ public class AppointmentsController : ControllerBase
         return Ok(new { message = "Payment confirmed, booking completed." });
     }
 
-    /// <summary>Get saga audit logs for a booking.</summary>
-    [HttpGet("book/{sagaId:guid}/logs")]
-    public async Task<ActionResult> GetBookingLogs(Guid sagaId, CancellationToken ct)
+    /// <summary>Confirm appointment after async saga completes (called by OrchestratorService).</summary>
+    [HttpPost("{id:guid}/confirm")]
+    public async Task<IActionResult> Confirm(Guid id, CancellationToken ct)
     {
-        var logs = await _logRepo.GetBySagaIdAsync(sagaId, ct);
-        return Ok(logs);
+        await _mediator.Send(new ConfirmAppointmentCommand(id), ct);
+        return Ok(new { success = true });
     }
 }

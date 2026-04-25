@@ -1,28 +1,26 @@
 using AppointmentService.Application.Commands;
-using AppointmentService.Application.Saga;
-using AppointmentService.Domain.Exceptions;
-using AppointmentService.Infrastructure.Repositories;
 using MediatR;
 
 namespace AppointmentService.Application.Handlers;
 
-/// <summary>Handles payment confirmation — finds saga by paymentId then completes it.</summary>
+/// <summary>
+/// Handles ConfirmPaymentCommand — payment confirmation is now managed by OrchestratorService.
+/// This handler is kept as a no-op stub so the endpoint contract remains intact for legacy callers.
+/// Full saga completion (state update, notification) is handled by OrchestratorService PaymentCompletedConsumer.
+/// </summary>
 public class ConfirmPaymentHandler : IRequestHandler<ConfirmPaymentCommand>
 {
-    private readonly BookingSagaOrchestrator _orchestrator;
-    private readonly IBookingSagaRepository _sagaRepo;
+    private readonly ILogger<ConfirmPaymentHandler> _logger;
 
-    public ConfirmPaymentHandler(BookingSagaOrchestrator orchestrator, IBookingSagaRepository sagaRepo)
+    public ConfirmPaymentHandler(ILogger<ConfirmPaymentHandler> logger) => _logger = logger;
+
+    public Task Handle(ConfirmPaymentCommand cmd, CancellationToken ct)
     {
-        _orchestrator = orchestrator;
-        _sagaRepo = sagaRepo;
-    }
-
-    public async Task Handle(ConfirmPaymentCommand cmd, CancellationToken ct)
-    {
-        var saga = await _sagaRepo.GetByPaymentIdAsync(cmd.PaymentId, ct)
-            ?? throw new NotFoundException("Saga with payment", cmd.PaymentId);
-
-        await _orchestrator.CompleteAfterPaymentAsync(saga.Id, ct);
+        // Payment saga completion is owned by OrchestratorService.
+        // AppointmentService receives the appointment confirm call separately via POST /confirm.
+        _logger.LogInformation(
+            "ConfirmPayment {PaymentId} received — saga completion delegated to OrchestratorService",
+            cmd.PaymentId);
+        return Task.CompletedTask;
     }
 }

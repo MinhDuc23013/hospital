@@ -33,6 +33,7 @@ public class Appointment
         };
     }
 
+    public void Confirm() { Status = AppointmentStatus.Confirmed; UpdatedAt = DateTime.Now; }
     public void Cancel() { Status = AppointmentStatus.Cancelled; UpdatedAt = DateTime.Now; }
     public void Complete() { Status = AppointmentStatus.Completed; UpdatedAt = DateTime.Now; }
     public void MarkNoShow() { Status = AppointmentStatus.NoShow; UpdatedAt = DateTime.Now; }
