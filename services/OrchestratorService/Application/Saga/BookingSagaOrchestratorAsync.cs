@@ -91,7 +91,6 @@ public partial class BookingSagaOrchestrator
 
     private async Task AsyncStep_ConfirmAppointment(Domain.Entities.BookingSaga saga, CancellationToken ct)
     {
-        // Calls AppointmentService HTTP API — no direct DB write
         var ok = await _appointmentClient.ConfirmAppointmentAsync(saga.AppointmentId!.Value, ct);
         if (!ok)
             throw new SagaStepException($"Appointment {saga.AppointmentId} confirm failed — AppointmentService unavailable.");

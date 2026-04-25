@@ -12,6 +12,9 @@ public class PrescriptionRepository : IPrescriptionRepository
     public Task<Prescription?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => _context.Prescriptions.FirstOrDefaultAsync(p => p.Id == id, ct);
 
+    public Task<List<Prescription>> ListByAppointmentAsync(Guid appointmentId, CancellationToken ct = default)
+        => _context.Prescriptions.Where(p => p.AppointmentId == appointmentId).ToListAsync(ct);
+
     public Task AddAsync(Prescription prescription, CancellationToken ct = default)
         => _context.Prescriptions.AddAsync(prescription, ct).AsTask();
 

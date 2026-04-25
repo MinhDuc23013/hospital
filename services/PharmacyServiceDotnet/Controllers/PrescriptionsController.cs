@@ -33,6 +33,14 @@ public class PrescriptionsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet]
+    public async Task<ActionResult<List<PrescriptionResult>>> ListByAppointment(
+        [FromQuery] Guid appointmentId, CancellationToken ct)
+    {
+        var results = await _mediator.Send(new ListPrescriptionsByAppointmentQuery(appointmentId), ct);
+        return Ok(results);
+    }
+
     [HttpPost("{id:guid}/dispense")]
     public async Task<ActionResult<PrescriptionResult>> Dispense(Guid id, CancellationToken ct)
     {

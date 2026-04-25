@@ -762,6 +762,74 @@ services:
     networks:
       - hospital-network
 
+  lab-test-service:
+    build:
+      context: .
+      dockerfile: services/LabTestService/Dockerfile
+    container_name: lab-test-service
+    ports:
+      - "5011:5011"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5011
+      - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
+      - Kafka__BootstrapServers=kafka:9092
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__User=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-guest}
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
+      - Seq__Url=http://seq:5341
+      - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5011 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  imaging-service:
+    build:
+      context: .
+      dockerfile: services/ImagingService/Dockerfile
+    container_name: imaging-service
+    ports:
+      - "5012:5012"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5012
+      - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
+      - Kafka__BootstrapServers=kafka:9092
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__User=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-guest}
+      - Keycloak__Authority=http://keycloak:8080/realms/hospital
+      - Seq__Url=http://seq:5341
+      - Loki__Url=http://loki:3100
+      - Jaeger__Endpoint=http://jaeger:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5012 2>/dev/null && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
   # ── Client Applications ────────────────────────────────────────────────────
 
   patient-client:

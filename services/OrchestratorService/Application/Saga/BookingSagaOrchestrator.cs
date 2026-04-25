@@ -79,7 +79,7 @@ public partial class BookingSagaOrchestrator
             await SyncStep_CreateAppointment(saga, patientId, providerId, scheduledTime, durationMinutes, notes, ct);
             await SyncStep_LockSlot(saga, ct);
 
-            // Stage async trigger — saved atomically with saga state below
+            // Stage async trigger with sagaId as Kafka key → same partition → sequential consumer processing
             _events.StageEvent(new BookingSlotLockedEvent
             {
                 SagaId = saga.Id,
@@ -90,7 +90,7 @@ public partial class BookingSagaOrchestrator
                 SlotId = saga.SlotId,
                 ScheduledTime = saga.ScheduledTime,
                 DurationMinutes = saga.DurationMinutes
-            });
+            }, saga.Id.ToString());
             AddStepLog(saga, "SlotReserved", "SlotReserved", "Slot locked — async phase queued");
             await _sagaRepo.SaveChangesAsync(ct); // single flush: saga + log + outbox
 

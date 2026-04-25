@@ -67,6 +67,28 @@ builder.Services.AddHttpClient<IPaymentProviderClient, FakePaymentProviderClient
     client.Timeout = TimeSpan.FromSeconds(10);
 });
 
+// Invoice aggregation HTTP clients
+builder.Services.AddHttpClient<LabTestServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Services:LabTestService"] ?? "http://lab-test-service:5011");
+    client.Timeout = TimeSpan.FromSeconds(5);
+}).AddTokenForwarding().AddMetricsHandler();
+
+builder.Services.AddHttpClient<ImagingServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Services:ImagingService"] ?? "http://imaging-service:5012");
+    client.Timeout = TimeSpan.FromSeconds(5);
+}).AddTokenForwarding().AddMetricsHandler();
+
+builder.Services.AddHttpClient<PharmacyServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Services:PharmacyService"] ?? "http://pharmacy-service:5004");
+    client.Timeout = TimeSpan.FromSeconds(5);
+}).AddTokenForwarding().AddMetricsHandler();
+
 // Repositories & services
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentAuditLogRepository, PaymentAuditLogRepository>();

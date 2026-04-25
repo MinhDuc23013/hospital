@@ -57,11 +57,18 @@ public class OutboxEventPublisher
     /// Use this to batch the outbox write with other entity saves in one flush.
     /// </summary>
     public void StageEvent<T>(T @event) where T : class
+        => StageEvent(@event, Guid.NewGuid().ToString());
+
+    /// <summary>
+    /// Same as StageEvent but with explicit Kafka message key.
+    /// Use the business entity ID (e.g. sagaId) as key to ensure same-partition delivery,
+    /// which guarantees sequential processing and prevents concurrent duplicate execution.
+    /// </summary>
+    public void StageEvent<T>(T @event, string messageKey) where T : class
     {
         var topic = GetTopicName<T>();
-        var key = Guid.NewGuid().ToString();
         var value = JsonSerializer.Serialize(@event);
-        var outbox = EventOutbox.Create(topic, key, value, typeof(T).Name);
+        var outbox = EventOutbox.Create(topic, messageKey, value, typeof(T).Name);
         _dbContext.Set<EventOutbox>().Add(outbox);
     }
 
