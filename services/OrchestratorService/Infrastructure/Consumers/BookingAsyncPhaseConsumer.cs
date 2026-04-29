@@ -15,6 +15,7 @@ namespace OrchestratorService.Infrastructure.Consumers;
 ///
 /// Topic:   hospital.booking-slot-locked
 /// GroupId: orchestrator-service
+/// Throttle: max 10 messages/s (token bucket) — back-pressure via consumer lag
 /// </summary>
 public class BookingAsyncPhaseConsumer : BackgroundService
 {
@@ -22,10 +23,12 @@ public class BookingAsyncPhaseConsumer : BackgroundService
     private readonly KafkaDlqPublisher _dlq;
     private readonly ILogger<BookingAsyncPhaseConsumer> _logger;
     private readonly string _bootstrapServers;
+    private readonly KafkaThrottle _throttle;
 
     private const string Topic = "hospital.booking-slot-locked";
     private const string GroupId = "orchestrator-service";
     private const int MaxAttempts = 3;
+    private const int MaxMessagesPerSecond = 10;
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
@@ -39,6 +42,8 @@ public class BookingAsyncPhaseConsumer : BackgroundService
         _dlq = dlq;
         _logger = logger;
         _bootstrapServers = config["Kafka:BootstrapServers"] ?? "localhost:9092";
+        _throttle = new KafkaThrottle(
+            config.GetValue<int>("Kafka:BookingConsumer:MaxMessagesPerSecond", MaxMessagesPerSecond));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -66,6 +71,9 @@ public class BookingAsyncPhaseConsumer : BackgroundService
                 result = consumer.Consume(stoppingToken);
                 if (result?.Message?.Value is null) continue;
 
+                // Throttle: wait for a token before processing — blocks poll loop when rate limit hit
+                await _throttle.WaitAsync(stoppingToken);
+
                 var handled = await KafkaConsumerRetryHelper.HandleWithDlqAsync(
                     result,
                     handler: ct => ProcessMessageAsync(result, ct),
@@ -75,8 +83,7 @@ public class BookingAsyncPhaseConsumer : BackgroundService
                     stoppingToken,
                     maxAttempts: MaxAttempts);
 
-                if (handled)
-                    consumer.Commit(result);
+                consumer.Commit(result);
             }
             catch (ConsumeException ex)
             {
@@ -90,6 +97,7 @@ public class BookingAsyncPhaseConsumer : BackgroundService
         }
 
         consumer.Close();
+        _throttle.Dispose();
     }
 
     private async Task ProcessMessageAsync(ConsumeResult<string, string> result, CancellationToken ct)

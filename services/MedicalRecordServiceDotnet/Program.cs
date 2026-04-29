@@ -1,5 +1,7 @@
+using Confluent.Kafka;
 using FluentValidation;
 using HospitalShared.Auth;
+using HospitalShared.Kafka;
 using HospitalShared.Tracing;
 using Prometheus;
 using MedicalRecordServiceDotnet.Infrastructure.Consumers;
@@ -37,6 +39,15 @@ builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
 
 // Repositories
 builder.Services.AddSingleton<IMedicalRecordRepository, MedicalRecordRepository>();
+
+// Kafka producer + DLQ publisher
+var kafkaBootstrap = builder.Configuration["Kafka:BootstrapServers"] ?? "localhost:9092";
+builder.Services.AddSingleton<IProducer<string, string>>(sp =>
+{
+    var config = new ProducerConfig { BootstrapServers = kafkaBootstrap, MessageTimeoutMs = 15000 };
+    return new ProducerBuilder<string, string>(config).Build();
+});
+builder.Services.AddSingleton<KafkaDlqPublisher>();
 
 // Kafka consumer
 builder.Services.AddHostedService<AppointmentScheduledConsumer>();

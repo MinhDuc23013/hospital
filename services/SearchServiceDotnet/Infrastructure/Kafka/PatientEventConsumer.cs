@@ -94,8 +94,7 @@ public class PatientEventConsumer : BackgroundService
                     ct,
                     maxAttempts: MaxAttempts);
 
-                if (handled)
-                    consumer.Commit(result);
+                consumer.Commit(result);
             }
         }
         catch (OperationCanceledException)

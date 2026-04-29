@@ -75,8 +75,7 @@ public class PaymentEventConsumer : BackgroundService
                     stoppingToken,
                     maxAttempts: MaxAttempts);
 
-                if (handled)
-                    consumer.Commit(result);
+                consumer.Commit(result);
             }
             catch (ConsumeException ex)
             {

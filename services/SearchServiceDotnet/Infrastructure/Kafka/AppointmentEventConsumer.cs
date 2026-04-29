@@ -91,8 +91,7 @@ public class AppointmentEventConsumer : BackgroundService
                     ct,
                     maxAttempts: MaxAttempts);
 
-                if (handled)
-                    consumer.Commit(result);
+                consumer.Commit(result);
             }
         }
         catch (OperationCanceledException)
