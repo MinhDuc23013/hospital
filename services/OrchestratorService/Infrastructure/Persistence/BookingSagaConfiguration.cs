@@ -17,8 +17,15 @@ public class BookingSagaConfiguration : IEntityTypeConfiguration<BookingSaga>
         builder.Property(s => s.FailureReason).HasMaxLength(1000);
         builder.Property(s => s.Notes).HasMaxLength(2000);
         builder.Property(s => s.CreatedAt).HasDefaultValueSql("NOW()");
+        builder.Property(s => s.Version).IsConcurrencyToken().HasDefaultValue(0u);
         builder.HasIndex(s => s.PatientId);
         builder.HasIndex(s => s.AppointmentId);
         builder.HasIndex(s => s.CurrentStep);
+        // Prevent duplicate active bookings for the same patient+doctor+slot at DB level.
+        // Partial index excludes terminal states so completed/failed sagas don't block re-booking.
+        builder.HasIndex(s => new { s.PatientId, s.DoctorId, s.SlotId })
+            .IsUnique()
+            .HasFilter("\"CurrentStep\" NOT IN ('Failed','Compensated','Completed')")
+            .HasDatabaseName("ux_booking_sagas_active_slot");
     }
 }

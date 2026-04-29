@@ -15,6 +15,7 @@ public class OrchestratorDbContext : DbContext
     public DbSet<PaymentSaga> PaymentSagas => Set<PaymentSaga>();
     public DbSet<CompensationOutbox> CompensationOutbox => Set<CompensationOutbox>();
     public DbSet<EventOutbox> EventOutbox => Set<EventOutbox>();
+    public DbSet<ProcessedEvent> ProcessedEvents => Set<ProcessedEvent>();
 
     public OrchestratorDbContext(DbContextOptions<OrchestratorDbContext> options) : base(options) { }
 
@@ -25,5 +26,6 @@ public class OrchestratorDbContext : DbContext
         modelBuilder.ApplyConfiguration(new PaymentSagaConfiguration());
         modelBuilder.ApplyConfiguration(new CompensationOutboxConfiguration());
         modelBuilder.ApplyConfiguration(new EventOutboxConfiguration());
+        modelBuilder.ApplyConfiguration(new ProcessedEventConfiguration());
     }
 }

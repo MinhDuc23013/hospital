@@ -2,7 +2,10 @@ using System.Text.Json;
 using Confluent.Kafka;
 using HospitalShared.Events;
 using HospitalShared.Kafka;
+using Microsoft.EntityFrameworkCore;
 using OrchestratorService.Application.Saga;
+using OrchestratorService.Domain.Entities;
+using OrchestratorService.Infrastructure.Persistence;
 
 namespace OrchestratorService.Infrastructure.Consumers;
 
@@ -99,8 +102,40 @@ public class BookingAsyncPhaseConsumer : BackgroundService
             evt.SagaId, evt.AppointmentId);
 
         using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrchestratorDbContext>();
         var orchestrator = scope.ServiceProvider.GetRequiredService<BookingSagaOrchestrator>();
 
-        await orchestrator.ExecuteAsyncPhaseAsync(evt.SagaId, ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        // Insert idempotency key — unique constraint on (EventId, ConsumerGroup)
+        // Duplicate Kafka delivery hits the constraint and rolls back before touching business logic
+        var idempotencyKey = ProcessedEvent.Create(evt.SagaId, GroupId);
+        db.ProcessedEvents.Add(idempotencyKey);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("duplicate") == true
+                                        || ex.InnerException?.Message.Contains("unique") == true)
+        {
+            await tx.RollbackAsync(ct);
+            _logger.LogInformation(
+                "BookingAsyncPhaseConsumer: duplicate event SagaId={SagaId} — already processed, skipping",
+                evt.SagaId);
+            return;
+        }
+
+        try
+        {
+            await orchestrator.ExecuteAsyncPhaseAsync(evt.SagaId, ct);
+            await tx.CommitAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await tx.RollbackAsync(ct);
+            _logger.LogWarning(
+                "BookingAsyncPhaseConsumer: concurrency conflict on SagaId={SagaId} — another instance processed first, skipping",
+                evt.SagaId);
+        }
     }
 }

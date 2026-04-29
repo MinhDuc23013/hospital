@@ -42,7 +42,7 @@ public class PaymentSagaOrchestrator
         string method, string currency,
         CancellationToken ct)
     {
-        // Idempotency: return existing Processing saga (same checkout URL)
+        // Idempotency: return existing saga if already Processing or Completed.
         var existing = await _sagaRepo.GetActiveByAppointmentIdAsync(appointmentId, ct);
         if (existing is not null)
         {
@@ -74,7 +74,7 @@ public class PaymentSagaOrchestrator
             if (payment is null)
                 throw new SagaStepException("Failed to create payment in PaymentService.");
 
-            // Step 3: Process payment (calls fake provider, gets checkout URL)
+            // Step 3: Process payment (calls provider, gets checkout URL)
             var processed = await _paymentClient.ProcessPaymentAsync(payment.Id, ct);
             if (processed is null)
                 throw new SagaStepException("Failed to process payment — provider unavailable.");

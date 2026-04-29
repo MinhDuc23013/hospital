@@ -147,6 +147,9 @@ using (var scope = app.Services.CreateScope())
             CREATE INDEX IF NOT EXISTS ix_payment_sagas_appointment ON payment_sagas(""AppointmentId"");
             CREATE INDEX IF NOT EXISTS ix_payment_sagas_payment ON payment_sagas(""PaymentId"");
             CREATE INDEX IF NOT EXISTS ix_payment_sagas_step ON payment_sagas(""CurrentStep"");
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_sagas_active_appointment
+                ON payment_sagas(""AppointmentId"")
+                WHERE ""CurrentStep"" != 'Failed';
         ");
     }
     catch (Exception ex)

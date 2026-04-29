@@ -24,6 +24,7 @@ public class BookingSaga
     public string? FailureReason { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
+    public uint Version { get; private set; }
 
     private BookingSaga() { } // EF Core
 
@@ -68,23 +69,27 @@ public class BookingSaga
         FailureReason = reason;
         CurrentStep = BookingSagaStep.Failed;
         UpdatedAt = DateTime.Now;
+        Version++;
     }
 
     public void MarkCompensating()
     {
         CurrentStep = BookingSagaStep.Compensating;
         UpdatedAt = DateTime.Now;
+        Version++;
     }
 
     public void MarkCompensated()
     {
         CurrentStep = BookingSagaStep.Compensated;
         UpdatedAt = DateTime.Now;
+        Version++;
     }
 
     private void AdvanceTo(BookingSagaStep step)
     {
         CurrentStep = step;
         UpdatedAt = DateTime.Now;
+        Version++;
     }
 }

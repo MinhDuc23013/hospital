@@ -68,6 +68,15 @@ public partial class BookingSagaOrchestrator
         DateTime scheduledTime, int durationMinutes,
         string? notes, CancellationToken ct)
     {
+        var existing = await _sagaRepo.GetActiveBySlotAsync(patientId, providerId, slotId, ct);
+        if (existing is not null)
+        {
+            _logger.LogWarning(
+                "Duplicate booking blocked — active saga {SagaId} already exists for Patient={PatientId} Doctor={DoctorId} Slot={SlotId} Step={Step}",
+                existing.Id, patientId, providerId, slotId, existing.CurrentStep);
+            return existing;
+        }
+
         var saga = BookingSaga.Create(patientId, providerId, scheduleId, slotId,
             scheduledTime, durationMinutes, notes);
         await _sagaRepo.AddAsync(saga, ct);
@@ -117,6 +126,7 @@ public partial class BookingSagaOrchestrator
         if (patient is null)
             throw new SagaStepException($"Patient '{patientId}' not found or PatientService unavailable.");
 
+        AddStepLog(saga, "Started", "PatientValidated", $"Patient {patientId} validated");
         _logger.LogDebug("Saga {SagaId} patient {PatientId} validated", saga.Id, patientId);
     }
 

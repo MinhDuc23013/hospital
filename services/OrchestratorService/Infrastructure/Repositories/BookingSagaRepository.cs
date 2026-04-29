@@ -22,6 +22,15 @@ public class BookingSagaRepository : IBookingSagaRepository
             && s.CurrentStep != BookingSagaStep.Compensated
             && s.CurrentStep != BookingSagaStep.Failed, ct);
 
+    public Task<BookingSaga?> GetActiveBySlotAsync(Guid patientId, string doctorId, Guid slotId, CancellationToken ct = default)
+        => _context.BookingSagas.FirstOrDefaultAsync(s =>
+            s.PatientId == patientId
+            && s.DoctorId == doctorId
+            && s.SlotId == slotId
+            && s.CurrentStep != BookingSagaStep.Failed
+            && s.CurrentStep != BookingSagaStep.Compensated
+            && s.CurrentStep != BookingSagaStep.Completed, ct);
+
     /// <summary>
     /// Fetches sagas stuck at a given step past a cutoff, with pessimistic row lock
     /// (FOR UPDATE SKIP LOCKED) so only one replica processes each row.
