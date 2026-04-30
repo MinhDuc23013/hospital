@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using OrchestratorService.Domain.Entities;
 using OrchestratorService.Domain.Enums;
 using OrchestratorService.Infrastructure.HttpClients;
@@ -68,18 +70,32 @@ public partial class BookingSagaOrchestrator
         DateTime scheduledTime, int durationMinutes,
         string? notes, CancellationToken ct)
     {
-        var existing = await _sagaRepo.GetActiveBySlotAsync(patientId, providerId, slotId, ct);
-        if (existing is not null)
-        {
-            _logger.LogWarning(
-                "Duplicate booking blocked — active saga {SagaId} already exists for Patient={PatientId} Doctor={DoctorId} Slot={SlotId} Step={Step}",
-                existing.Id, patientId, providerId, slotId, existing.CurrentStep);
-            return existing;
-        }
-
         var saga = BookingSaga.Create(patientId, providerId, scheduleId, slotId,
             scheduledTime, durationMinutes, notes);
         await _sagaRepo.AddAsync(saga, ct);
+
+        // Flush early so the unique constraint (ux_booking_sagas_active_slot) fires
+        // before any HTTP calls — prevents orphaned appointments on race condition.
+        try
+        {
+            await _sagaRepo.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException { SqlState: "23505" } pg
+                  && pg.ConstraintName == "ux_booking_sagas_active_slot")
+        {
+            var dup = await _sagaRepo.GetActiveBySlotAsync(patientId, providerId, slotId, ct);
+            _logger.LogWarning(
+                "Race condition blocked — returning existing saga {SagaId} for Patient={PatientId} Slot={SlotId}",
+                dup!.Id, patientId, slotId);
+            return dup!;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to persist saga for Patient={PatientId} Slot={SlotId}", patientId, slotId);
+            throw;
+        }
+
         _logger.LogInformation("Saga {SagaId} started for patient {PatientId}", saga.Id, patientId);
 
         try
