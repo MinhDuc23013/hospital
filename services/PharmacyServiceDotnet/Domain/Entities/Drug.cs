@@ -1,3 +1,4 @@
+using HospitalShared;
 namespace PharmacyServiceDotnet.Domain.Entities;
 
 /// <summary>Drug entity — represents a medication item in the pharmacy inventory.</summary>
@@ -19,7 +20,7 @@ public class Drug
     {
         return new Drug
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             Name = name,
             Code = code,
             Dosage = dosage,

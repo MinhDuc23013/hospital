@@ -1,3 +1,4 @@
+using HospitalShared;
 using LabTestService.Domain.Enums;
 
 namespace LabTestService.Domain.Entities;
@@ -23,7 +24,7 @@ public class LabOrderItem
     public static LabOrderItem Create(Guid labOrderId, string testName, string testCode, string category, decimal unitPrice = 0) =>
         new()
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             LabOrderId = labOrderId,
             TestName = testName,
             TestCode = testCode,

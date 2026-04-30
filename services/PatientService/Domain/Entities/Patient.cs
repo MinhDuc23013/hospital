@@ -1,3 +1,4 @@
+using HospitalShared;
 namespace PatientService.Domain.Entities;
 
 /// <summary>Patient aggregate root — core medical identity in the system.</summary>
@@ -26,7 +27,7 @@ public class Patient
     {
         return new Patient
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             Email = email.ToLowerInvariant().Trim(),
             FirstName = firstName.Trim(),
             LastName = lastName.Trim(),

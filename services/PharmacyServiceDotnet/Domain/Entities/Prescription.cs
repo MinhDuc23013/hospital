@@ -1,3 +1,4 @@
+using HospitalShared;
 using PharmacyServiceDotnet.Domain.Enums;
 using PharmacyServiceDotnet.Domain.Exceptions;
 
@@ -23,7 +24,7 @@ public class Prescription
     {
         return new Prescription
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             PatientId = patientId,
             DoctorId = doctorId,
             AppointmentId = appointmentId,

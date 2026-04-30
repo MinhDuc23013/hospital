@@ -1,3 +1,4 @@
+using HospitalShared;
 using AppointmentService.Domain.Enums;
 
 namespace AppointmentService.Domain.Entities;
@@ -21,7 +22,7 @@ public class Appointment
     {
         return new Appointment
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             PatientId = patientId,
             DoctorId = providerId,
             ScheduledTime = scheduledTime,

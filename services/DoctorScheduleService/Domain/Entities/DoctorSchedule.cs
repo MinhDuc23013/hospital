@@ -1,3 +1,4 @@
+using HospitalShared;
 using DoctorScheduleService.Domain.Enums;
 using DoctorScheduleService.Domain.Exceptions;
 
@@ -29,7 +30,7 @@ public class DoctorSchedule
     {
         var schedule = new DoctorSchedule
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             DoctorId = doctorId,
             DoctorName = doctorName,
             Date = date.Date,

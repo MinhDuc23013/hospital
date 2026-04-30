@@ -860,3 +860,7 @@
 {"ts":"2026-04-29T16:05:56.163Z","hook":"scout-block","tool":"Bash","dur":0,"status":"ok","exit":0,"error":""}
 {"ts":"2026-04-29T16:06:00.081Z","hook":"scout-block","tool":"Bash","dur":4,"status":"ok","exit":0,"error":""}
 {"ts":"2026-04-29T16:06:04.740Z","hook":"scout-block","tool":"Bash","dur":4,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-30T03:06:20.123Z","hook":"scout-block","tool":"Bash","dur":11,"status":"block","exit":2,"error":""}
+{"ts":"2026-04-30T03:12:31.800Z","hook":"scout-block","tool":"Bash","dur":1,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-30T03:12:36.093Z","hook":"scout-block","tool":"Bash","dur":7,"status":"ok","exit":0,"error":""}
+{"ts":"2026-04-30T03:12:39.308Z","hook":"scout-block","tool":"Bash","dur":3,"status":"ok","exit":0,"error":""}

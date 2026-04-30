@@ -1,3 +1,4 @@
+using HospitalShared;
 namespace NotificationServiceDotnet.Domain.Entities;
 
 /// <summary>
@@ -5,7 +6,7 @@ namespace NotificationServiceDotnet.Domain.Entities;
 /// </summary>
 public class NotificationRecord
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid Id { get; set; } = GuidV7.NewGuid();
     public string Channel { get; set; } = string.Empty; // "email" or "sms"
     public string Recipient { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;

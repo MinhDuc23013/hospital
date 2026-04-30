@@ -1,3 +1,4 @@
+using HospitalShared;
 using DoctorScheduleService.Domain.Enums;
 
 namespace DoctorScheduleService.Domain.Entities;
@@ -19,7 +20,7 @@ public class TimeSlot
 
     internal static TimeSlot Create(Guid scheduleId, TimeSpan startTime, TimeSpan endTime) => new()
     {
-        Id = Guid.NewGuid(),
+        Id = GuidV7.NewGuid(),
         ScheduleId = scheduleId,
         StartTime = startTime,
         EndTime = endTime,

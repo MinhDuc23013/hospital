@@ -1,3 +1,4 @@
+using HospitalShared;
 namespace OrchestratorService.Domain.Entities;
 
 /// <summary>
@@ -25,7 +26,7 @@ public class CompensationOutbox
     {
         return new CompensationOutbox
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             SagaId = sagaId,
             ActionType = actionType,
             Payload = payload,

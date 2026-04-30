@@ -1,3 +1,4 @@
+using HospitalShared;
 using PharmacyServiceDotnet.Domain.Enums;
 
 namespace PharmacyServiceDotnet.Domain.Entities;
@@ -34,7 +35,7 @@ public class DispensingSaga
     {
         return new DispensingSaga
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             PrescriptionId = prescriptionId,
             PatientId = patientId,
             DoctorId = doctorId,

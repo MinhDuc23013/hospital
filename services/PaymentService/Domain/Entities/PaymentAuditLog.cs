@@ -1,3 +1,4 @@
+using HospitalShared;
 namespace PaymentService.Domain.Entities;
 
 /// <summary>Audit log for payment state transitions.</summary>
@@ -24,7 +25,7 @@ public class PaymentAuditLog
     {
         return new PaymentAuditLog
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             PaymentId = paymentId,
             Action = action,
             OldStatus = oldStatus,

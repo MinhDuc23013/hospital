@@ -1,3 +1,4 @@
+using HospitalShared;
 namespace DoctorScheduleService.Domain.Entities;
 
 /// <summary>Doctor entity — represents a healthcare provider.</summary>
@@ -25,7 +26,7 @@ public class Doctor
     {
         return new Doctor
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             FullName = fullName,
             Specialty = specialty,
             Phone = phone,

@@ -1,3 +1,4 @@
+using HospitalShared;
 namespace PharmacyServiceDotnet.Domain.Entities;
 
 /// <summary>
@@ -26,7 +27,7 @@ public class DrugBatch
     {
         return new DrugBatch
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             DrugId = drugId,
             BatchNumber = batchNumber,
             ExpiryDate = expiryDate,

@@ -1,3 +1,4 @@
+using HospitalShared;
 using PaymentService.Domain.Enums;
 using PaymentService.Domain.Exceptions;
 
@@ -38,7 +39,7 @@ public class Payment
     {
         return new Payment
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             AppointmentId = appointmentId,
             PatientId = patientId,
             Amount = amount,

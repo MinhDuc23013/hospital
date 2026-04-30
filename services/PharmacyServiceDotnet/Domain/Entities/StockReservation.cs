@@ -1,3 +1,4 @@
+using HospitalShared;
 using PharmacyServiceDotnet.Domain.Enums;
 
 namespace PharmacyServiceDotnet.Domain.Entities;
@@ -26,7 +27,7 @@ public class StockReservation
     {
         return new StockReservation
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             PrescriptionId = prescriptionId,
             DrugBatchId = drugBatchId,
             DrugId = drugId,

@@ -1,3 +1,4 @@
+using HospitalShared;
 namespace OrchestratorService.Domain.Entities;
 
 /// <summary>Audit log entry for each step transition in a booking saga.</summary>
@@ -19,7 +20,7 @@ public class BookingSagaLog
     {
         return new BookingSagaLog
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             SagaId = sagaId,
             FromStep = fromStep,
             ToStep = toStep,

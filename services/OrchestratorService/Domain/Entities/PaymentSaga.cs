@@ -1,3 +1,4 @@
+using HospitalShared;
 using OrchestratorService.Domain.Enums;
 
 namespace OrchestratorService.Domain.Entities;
@@ -28,7 +29,7 @@ public class PaymentSaga
     {
         return new PaymentSaga
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             AppointmentId = appointmentId,
             PatientId = patientId,
             Method = method,

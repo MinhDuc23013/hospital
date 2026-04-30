@@ -1,3 +1,4 @@
+using HospitalShared;
 using OrchestratorService.Domain.Enums;
 
 namespace OrchestratorService.Domain.Entities;
@@ -36,7 +37,7 @@ public class BookingSaga
     {
         return new BookingSaga
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             PatientId = patientId,
             DoctorId = providerId,
             ScheduleId = scheduleId,

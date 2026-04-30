@@ -1,3 +1,4 @@
+using HospitalShared;
 namespace ImagingService.Domain.Entities;
 
 /// <summary>Radiology report attached to an imaging order after the scan is read.</summary>
@@ -18,7 +19,7 @@ public class ImagingResult
         string? imageUrl, string reportedBy) =>
         new()
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             ImagingOrderId = imagingOrderId,
             Findings = findings,
             Impression = impression,

@@ -1,3 +1,4 @@
+using HospitalShared;
 using LabTestService.Domain.Enums;
 
 namespace LabTestService.Domain.Entities;
@@ -28,7 +29,7 @@ public class LabOrder
     {
         var order = new LabOrder
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             PatientId = patientId,
             AppointmentId = appointmentId,
             DoctorId = doctorId,

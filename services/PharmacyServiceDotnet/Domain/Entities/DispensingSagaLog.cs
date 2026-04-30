@@ -1,3 +1,4 @@
+using HospitalShared;
 namespace PharmacyServiceDotnet.Domain.Entities;
 
 /// <summary>Audit log entry for each step transition in the dispensing saga.</summary>
@@ -19,7 +20,7 @@ public class DispensingSagaLog
     {
         return new DispensingSagaLog
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             SagaId = sagaId,
             FromStep = fromStep,
             ToStep = toStep,

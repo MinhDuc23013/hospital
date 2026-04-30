@@ -1,3 +1,4 @@
+using HospitalShared;
 using PaymentService.Domain.Exceptions;
 
 namespace PaymentService.Domain.Entities;
@@ -27,7 +28,7 @@ public class CashSession
     {
         return new CashSession
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             CashierId = cashierId,
             CashierName = cashierName,
             CounterId = counterId,

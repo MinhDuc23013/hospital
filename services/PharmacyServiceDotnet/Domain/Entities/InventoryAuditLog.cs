@@ -1,3 +1,4 @@
+using HospitalShared;
 using PharmacyServiceDotnet.Domain.Enums;
 
 namespace PharmacyServiceDotnet.Domain.Entities;
@@ -33,7 +34,7 @@ public class InventoryAuditLog
     {
         return new InventoryAuditLog
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             Action = action,
             DrugId = drugId,
             DrugBatchId = drugBatchId,

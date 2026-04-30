@@ -1,3 +1,4 @@
+using HospitalShared;
 using ImagingService.Domain.Enums;
 
 namespace ImagingService.Domain.Entities;
@@ -25,7 +26,7 @@ public class ImagingOrder
         ImagingType type, string bodyPart, string? clinicalHistory, decimal price = 0) =>
         new()
         {
-            Id = Guid.NewGuid(),
+            Id = GuidV7.NewGuid(),
             PatientId = patientId,
             AppointmentId = appointmentId,
             DoctorId = doctorId,
