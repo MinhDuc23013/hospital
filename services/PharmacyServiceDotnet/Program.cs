@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using FluentValidation;
 using HospitalShared.Auth;
 using HospitalShared.Metrics;
+using HospitalShared.Resilience;
 using HospitalShared.Tracing;
 using Microsoft.EntityFrameworkCore;
 using PharmacyServiceDotnet.Application.Saga;
@@ -73,7 +74,8 @@ builder.Services.AddHttpClient<PaymentServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008/");
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 // Background workers
 builder.Services.AddHostedService<HospitalShared.Outbox.OutboxPublishWorker<PharmacyDbContext>>();

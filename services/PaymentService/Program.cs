@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using FluentValidation;
 using HospitalShared.Auth;
 using HospitalShared.Metrics;
+using HospitalShared.Resilience;
 using HospitalShared.Tracing;
 using Microsoft.EntityFrameworkCore;
 using PaymentService.Infrastructure.HttpClients;
@@ -56,38 +57,38 @@ builder.Services.AddHttpClient<AppointmentServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:AppointmentService"] ?? "http://appointment-service:5002");
-    client.Timeout = TimeSpan.FromSeconds(5);
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 // FakePaymentProvider HTTP client
 builder.Services.AddHttpClient<IPaymentProviderClient, FakePaymentProviderClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PaymentProvider"] ?? "http://localhost:5009");
-    client.Timeout = TimeSpan.FromSeconds(10);
-});
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddResilienceHandler();
 
 // Invoice aggregation HTTP clients
 builder.Services.AddHttpClient<LabTestServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:LabTestService"] ?? "http://lab-test-service:5011");
-    client.Timeout = TimeSpan.FromSeconds(5);
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 builder.Services.AddHttpClient<ImagingServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:ImagingService"] ?? "http://imaging-service:5012");
-    client.Timeout = TimeSpan.FromSeconds(5);
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 builder.Services.AddHttpClient<PharmacyServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PharmacyService"] ?? "http://pharmacy-service:5004");
-    client.Timeout = TimeSpan.FromSeconds(5);
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 // Repositories & services
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();

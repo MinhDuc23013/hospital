@@ -7,8 +7,8 @@ namespace AppointmentService.Application.Handlers;
 
 public class ListAppointmentsHandler : IRequestHandler<ListAppointmentsQuery, (List<AppointmentDto> Items, int Total)>
 {
-    private readonly IAppointmentRepository _repo;
-    public ListAppointmentsHandler(IAppointmentRepository repo) => _repo = repo;
+    private readonly IAppointmentReadRepository _repo;
+    public ListAppointmentsHandler(IAppointmentReadRepository repo) => _repo = repo;
 
     public async Task<(List<AppointmentDto> Items, int Total)> Handle(ListAppointmentsQuery query, CancellationToken ct)
     {

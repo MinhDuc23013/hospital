@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using HospitalShared.Auth;
 using HospitalShared.Metrics;
+using HospitalShared.Resilience;
 using HospitalShared.Tracing;
 using Microsoft.EntityFrameworkCore;
 using OrchestratorService.Application.Saga;
@@ -55,29 +56,29 @@ builder.Services.AddHttpClient<PatientServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PatientService"] ?? "http://patient-service:5001");
-    client.Timeout = TimeSpan.FromSeconds(5);
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 builder.Services.AddHttpClient<AppointmentServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:AppointmentService"] ?? "http://appointment-service:5002");
-    client.Timeout = TimeSpan.FromSeconds(10);
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:DoctorScheduleService"] ?? "http://doctor-schedule-service:5007");
-    client.Timeout = TimeSpan.FromSeconds(30);
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 builder.Services.AddHttpClient<PaymentServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008");
-    client.Timeout = TimeSpan.FromSeconds(10);
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 // Repositories
 builder.Services.AddScoped<IBookingSagaRepository, BookingSagaRepository>();

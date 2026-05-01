@@ -2,6 +2,7 @@ using AuthServiceDotnet.Infrastructure.Keycloak;
 using AuthServiceDotnet.Middleware;
 using HospitalShared.Auth;
 using HospitalShared.Metrics;
+using HospitalShared.Resilience;
 using HospitalShared.Tracing;
 using Prometheus;
 using Serilog;
@@ -23,8 +24,8 @@ builder.Services.AddMetricsHttpHandler();
 builder.Services.AddJaegerTracing(builder.Configuration, "auth-service");
 
 // Keycloak Admin API client
-builder.Services.AddHttpClient<KeycloakAdminClient>(c => c.Timeout = TimeSpan.FromSeconds(10))
-    .AddMetricsHandler();
+builder.Services.AddHttpClient<KeycloakAdminClient>(c => c.Timeout = Timeout.InfiniteTimeSpan)
+    .AddMetricsHandler().AddResilienceHandler();
 
 // MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));

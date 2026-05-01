@@ -7,6 +7,7 @@ using DoctorScheduleService.Middleware;
 using FluentValidation;
 using HospitalShared.Auth;
 using HospitalShared.Metrics;
+using HospitalShared.Resilience;
 using HospitalShared.Tracing;
 using Microsoft.EntityFrameworkCore;
 using Prometheus;
@@ -56,8 +57,8 @@ builder.Services.AddHttpClient<AuthServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:AuthService"] ?? "http://auth-service:5009");
-    client.Timeout = TimeSpan.FromSeconds(10);
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 // Elasticsearch client (direct search, no hop via SearchService)
 var esUri = builder.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200";

@@ -4,6 +4,7 @@ networks:
 
 volumes:
   pgdata:
+  pgdata-replica:
   mongodata:
   sqldata:
   rabbitmqdata:
@@ -29,11 +30,18 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: hospital-postgres
-    command: postgres -c max_connections=200 -c shared_buffers=256MB
+    command: >
+      postgres
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c wal_level=replica
+      -c max_wal_senders=3
+      -c wal_keep_size=64
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hospital}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_change_me}
       POSTGRES_DB: ${POSTGRES_DB:-hospital_db}
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replicator_pw_change_me}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -45,6 +53,34 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  postgres-replica:
+    image: postgres:15-alpine
+    container_name: hospital-postgres-replica
+    entrypoint: ["/bin/sh", "/scripts/start-replica.sh"]
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      PRIMARY_HOST: postgres
+      PRIMARY_PORT: 5432
+      REPLICATION_USER: replicator
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replicator_pw_change_me}
+    ports:
+      - "${POSTGRES_REPLICA_PORT:-5433}:5432"
+    volumes:
+      - pgdata-replica:/var/lib/postgresql/data
+      - ./infra/scripts/start-replica.sh:/scripts/start-replica.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d hospital_db || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
     networks:
       - hospital-network
@@ -463,6 +499,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5002
       - ConnectionStrings__PostgreSQL=Host=postgres;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
+      - ConnectionStrings__PostgreSQLRead=Host=postgres-replica;Database=${POSTGRES_DB:-hospital_db};Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-dev_password_change_me}
 
       - Kafka__BootstrapServers=kafka:9092
       - RabbitMQ__HostName=rabbitmq
@@ -477,6 +514,8 @@ services:
       - Jaeger__Endpoint=http://jaeger:4317
     depends_on:
       postgres:
+        condition: service_healthy
+      postgres-replica:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy

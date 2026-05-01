@@ -7,6 +7,7 @@ using Confluent.Kafka;
 using FluentValidation;
 using HospitalShared.Auth;
 using HospitalShared.Metrics;
+using HospitalShared.Resilience;
 using HospitalShared.Tracing;
 using Microsoft.EntityFrameworkCore;
 using Prometheus;
@@ -26,9 +27,15 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
     .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
         labels: [new() { Key = "service", Value = "appointment-service" }]));
 
-// EF Core + PostgreSQL
+// EF Core + PostgreSQL — write (primary)
 builder.Services.AddDbContext<AppointmentDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL"),
+        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null))
+    .AddMetricsInterceptor());
+
+// EF Core + PostgreSQL — read replica (no tracking, no outbox)
+builder.Services.AddDbContext<AppointmentReadDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQLRead"),
         npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null))
     .AddMetricsInterceptor());
 
@@ -56,19 +63,20 @@ builder.Services.AddHttpClient<PatientServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PatientService"] ?? "http://patient-service:5001");
-    client.Timeout = TimeSpan.FromSeconds(5);
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 // DoctorScheduleService HTTP client
 builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:DoctorScheduleService"] ?? "http://doctor-schedule-service:5007");
-    client.Timeout = TimeSpan.FromSeconds(30);
-}).AddTokenForwarding().AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 
 // Repositories
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+builder.Services.AddScoped<IAppointmentReadRepository, AppointmentReadRepository>();
 builder.Services.AddScoped<EventPublisher>();
 builder.Services.AddSingleton<NotificationPublisher>();
 builder.Services.AddSingleton<HospitalShared.Kafka.KafkaDlqPublisher>();

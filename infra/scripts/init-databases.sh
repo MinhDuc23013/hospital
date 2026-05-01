@@ -27,6 +27,16 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 
   -- Grant privileges
   GRANT ALL PRIVILEGES ON DATABASE $POSTGRES_DB TO $POSTGRES_USER;
+
+  -- Replication user for streaming replication (read replica)
+  CREATE USER replicator WITH REPLICATION ENCRYPTED PASSWORD '${REPLICATION_PASSWORD:-replicator_pw_change_me}';
 EOSQL
+
+# Allow replication connections from Docker network (172.0.0.0/8)
+echo "host replication replicator all md5" >> "$PGDATA/pg_hba.conf"
+
+# Reload pg_hba.conf so the new replication entry takes effect
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+  -c "SELECT pg_reload_conf();"
 
 echo "PostgreSQL initialized successfully"

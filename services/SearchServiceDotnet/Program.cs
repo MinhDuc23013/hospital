@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using HospitalShared.Auth;
 using HospitalShared.Kafka;
 using HospitalShared.Metrics;
+using HospitalShared.Resilience;
 using HospitalShared.Tracing;
 using SearchServiceDotnet.Application.Services;
 using SearchServiceDotnet.Infrastructure.Elasticsearch;
@@ -49,7 +50,10 @@ builder.Services.AddScoped<SearchService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddMetricsHttpHandler();
 builder.Services.AddJaegerTracing(builder.Configuration, "search-service");
-builder.Services.AddHttpClient<ReindexService>().AddTokenForwarding().AddMetricsHandler();
+builder.Services.AddHttpClient<ReindexService>(client =>
+{
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
 builder.Services.AddScoped<ReindexService>();
 
 // ── MVC + Swagger ─────────────────────────────────────────────────────────────

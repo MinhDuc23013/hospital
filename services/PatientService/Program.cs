@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using FluentValidation;
 using HospitalShared.Auth;
 using HospitalShared.Metrics;
+using HospitalShared.Resilience;
 using HospitalShared.Tracing;
 using Microsoft.EntityFrameworkCore;
 using PatientService.Infrastructure.HttpClients;
@@ -56,8 +57,8 @@ builder.Services.AddHttpClient<AuthServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:AuthService"] ?? "http://auth-service:5009");
-    client.Timeout = TimeSpan.FromSeconds(10);
-}).AddMetricsHandler();
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddMetricsHandler().AddResilienceHandler();
 
 // Repositories & services
 builder.Services.AddScoped<IPatientRepository, PatientRepository>();
