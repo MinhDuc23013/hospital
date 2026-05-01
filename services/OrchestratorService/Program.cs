@@ -1,5 +1,6 @@
 using Confluent.Kafka;
 using HospitalShared.Auth;
+using HospitalShared.Caching;
 using HospitalShared.Metrics;
 using HospitalShared.Resilience;
 using HospitalShared.Tracing;
@@ -50,6 +51,7 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
 // Custom Prometheus metrics
 builder.Services.AddMetricsHttpHandler();
 builder.Services.AddJaegerTracing(builder.Configuration, "orchestrator-service");
+builder.Services.AddRedisDistributedCache(builder.Configuration, keyPrefix: "orchestrator:");
 
 // HTTP clients
 builder.Services.AddHttpClient<PatientServiceClient>(client =>

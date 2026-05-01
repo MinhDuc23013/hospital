@@ -6,6 +6,7 @@ using AppointmentService.Middleware;
 using Confluent.Kafka;
 using FluentValidation;
 using HospitalShared.Auth;
+using HospitalShared.Caching;
 using HospitalShared.Metrics;
 using HospitalShared.Resilience;
 using HospitalShared.Tracing;
@@ -57,6 +58,7 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
 // Custom Prometheus metrics
 builder.Services.AddMetricsHttpHandler();
 builder.Services.AddJaegerTracing(builder.Configuration, "appointment-service");
+builder.Services.AddRedisDistributedCache(builder.Configuration, keyPrefix: "appointment:");
 
 // PatientService HTTP client for patient validation
 builder.Services.AddHttpClient<PatientServiceClient>(client =>
