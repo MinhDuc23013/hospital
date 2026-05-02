@@ -14,19 +14,33 @@ using Microsoft.EntityFrameworkCore;
 using Prometheus;
 using Serilog;
 using Serilog.Enrichers.Span;
+using Serilog.Formatting.Compact;
 using Serilog.Sinks.Grafana.Loki;
+using Serilog.Sinks.Http.BatchFormatters;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((ctx, cfg) => cfg
-    .ReadFrom.Configuration(ctx.Configuration)
-    .Enrich.WithSpan()
-    .WriteTo.Console()
-    .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
-    .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
-        labels: [new() { Key = "service", Value = "appointment-service" }]));
+builder.Host.UseSerilog((ctx, cfg) =>
+{
+    cfg .ReadFrom.Configuration(ctx.Configuration)
+        .Enrich.WithSpan()
+        .WriteTo.Console()
+        .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
+        .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
+            labels: [new() { Key = "service", Value = "appointment-service" }]);
+
+    var logstashUrl = ctx.Configuration["Logstash:Url"];
+    if (!string.IsNullOrWhiteSpace(logstashUrl))
+        // Serilog.Sinks.Http 8.x: (requestUri, queueLimitBytes, ..., textFormatter, batchFormatter, level)
+        cfg.WriteTo.Http(
+            logstashUrl,
+            queueLimitBytes: null,
+            textFormatter: new CompactJsonFormatter(),
+            batchFormatter: new ArrayBatchFormatter(),
+            restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information);
+});
 
 // EF Core + PostgreSQL — write (primary)
 builder.Services.AddDbContext<AppointmentDbContext>(options =>
@@ -58,7 +72,7 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
 // Custom Prometheus metrics
 builder.Services.AddMetricsHttpHandler();
 builder.Services.AddJaegerTracing(builder.Configuration, "appointment-service");
-builder.Services.AddRedisDistributedCache(builder.Configuration, keyPrefix: "appointment:");
+builder.Services.AddPatientFusionCache(builder.Configuration, instanceName: "appointment:");
 
 // PatientService HTTP client for patient validation
 builder.Services.AddHttpClient<PatientServiceClient>(client =>

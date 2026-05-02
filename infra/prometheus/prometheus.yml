@@ -69,3 +69,8 @@ scrape_configs:
       - targets: ['rabbitmq:15692']
     # per-object endpoint emits queue-labelled metrics (needed for per-queue dashboards).
     metrics_path: '/metrics/per-object'
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    metrics_path: '/metrics'

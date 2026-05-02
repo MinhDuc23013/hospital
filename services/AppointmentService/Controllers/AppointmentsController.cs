@@ -1,5 +1,6 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Application.Queries;
+using AppointmentService.Infrastructure.HttpClients;
 using HospitalShared.Auth;
 using HospitalShared.DTOs;
 using MediatR;
@@ -14,10 +15,20 @@ namespace AppointmentService.Controllers;
 public class AppointmentsController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly PatientServiceClient _patientClient;
 
-    public AppointmentsController(IMediator mediator)
+    public AppointmentsController(IMediator mediator, PatientServiceClient patientClient)
     {
         _mediator = mediator;
+        _patientClient = patientClient;
+    }
+
+    /// <summary>Validate patient existence via cache (L1→L2→HTTP). Safe for load testing.</summary>
+    [HttpGet("patients/{patientId:guid}/exists")]
+    public async Task<IActionResult> PatientExists(Guid patientId, CancellationToken ct)
+    {
+        var patient = await _patientClient.GetPatientAsync(patientId, ct);
+        return patient is null ? NotFound(new { patientId, exists = false }) : Ok(new { patientId, exists = true });
     }
 
     /// <summary>Schedule a new appointment directly (no saga).</summary>

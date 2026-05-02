@@ -16,19 +16,32 @@ using OrchestratorService.Middleware;
 using Prometheus;
 using Serilog;
 using Serilog.Enrichers.Span;
+using Serilog.Formatting.Compact;
 using Serilog.Sinks.Grafana.Loki;
+using Serilog.Sinks.Http.BatchFormatters;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((ctx, cfg) => cfg
-    .ReadFrom.Configuration(ctx.Configuration)
-    .Enrich.WithSpan()
-    .WriteTo.Console()
-    .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
-    .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
-        labels: [new() { Key = "service", Value = "orchestrator-service" }]));
+builder.Host.UseSerilog((ctx, cfg) =>
+{
+    cfg .ReadFrom.Configuration(ctx.Configuration)
+        .Enrich.WithSpan()
+        .WriteTo.Console()
+        .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
+        .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
+            labels: [new() { Key = "service", Value = "orchestrator-service" }]);
+
+    var logstashUrl = ctx.Configuration["Logstash:Url"];
+    if (!string.IsNullOrWhiteSpace(logstashUrl))
+        cfg.WriteTo.Http(
+            logstashUrl,
+            queueLimitBytes: null,
+            textFormatter: new CompactJsonFormatter(),
+            batchFormatter: new ArrayBatchFormatter(),
+            restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information);
+});
 
 // EF Core + PostgreSQL — tables already exist, no EnsureCreated/Migrate calls
 builder.Services.AddDbContext<OrchestratorDbContext>(options =>
@@ -51,7 +64,7 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
 // Custom Prometheus metrics
 builder.Services.AddMetricsHttpHandler();
 builder.Services.AddJaegerTracing(builder.Configuration, "orchestrator-service");
-builder.Services.AddRedisDistributedCache(builder.Configuration, keyPrefix: "orchestrator:");
+builder.Services.AddPatientFusionCache(builder.Configuration, instanceName: "orchestrator:");
 
 // HTTP clients
 builder.Services.AddHttpClient<PatientServiceClient>(client =>

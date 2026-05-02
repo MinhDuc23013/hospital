@@ -80,6 +80,8 @@ The Hospital HRM system enables hospitals to manage:
    | Prometheus | http://localhost:9090 | Metrics |
    | Grafana | http://localhost:3000 | Dashboards |
    | Seq | http://localhost:5341 | Logs |
+   | Kibana | http://localhost:5601 | Log/data visualization (ELK) |
+   | Logstash | localhost:5044 / 5000 | Log pipeline (Beats / TCP) |
 
 ---
 
