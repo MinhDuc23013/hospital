@@ -537,6 +537,8 @@ services:
       - Seq__Url=http://seq:5341
       - Loki__Url=http://loki:3100
       - Jaeger__Endpoint=http://jaeger:4317
+      - Redis__ConnectionString=redis:6379
+      - Logstash__Url=http://logstash:8088
     depends_on:
       postgres:
         condition: service_healthy

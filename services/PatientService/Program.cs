@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using FluentValidation;
 using HospitalShared.Auth;
+using HospitalShared.Caching;
 using HospitalShared.Metrics;
 using HospitalShared.Resilience;
 using HospitalShared.Tracing;
@@ -13,19 +14,32 @@ using PatientService.Middleware;
 using Prometheus;
 using Serilog;
 using Serilog.Enrichers.Span;
+using Serilog.Formatting.Compact;
 using Serilog.Sinks.Grafana.Loki;
+using Serilog.Sinks.Http.BatchFormatters;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((ctx, cfg) => cfg
-    .ReadFrom.Configuration(ctx.Configuration)
-    .Enrich.WithSpan()
-    .WriteTo.Console()
-    .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
-    .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
-        labels: [new() { Key = "service", Value = "patient-service" }]));
+builder.Host.UseSerilog((ctx, cfg) =>
+{
+    cfg .ReadFrom.Configuration(ctx.Configuration)
+        .Enrich.WithSpan()
+        .WriteTo.Console()
+        .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341")
+        .WriteTo.GrafanaLoki(ctx.Configuration["Loki:Url"] ?? "http://localhost:3100",
+            labels: [new() { Key = "service", Value = "patient-service" }]);
+
+    var logstashUrl = ctx.Configuration["Logstash:Url"];
+    if (!string.IsNullOrWhiteSpace(logstashUrl))
+        cfg.WriteTo.Http(
+            logstashUrl,
+            queueLimitBytes: null,
+            textFormatter: new CompactJsonFormatter(),
+            batchFormatter: new ArrayBatchFormatter(),
+            restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information);
+});
 
 // EF Core + PostgreSQL
 builder.Services.AddDbContext<PatientDbContext>(options =>
@@ -51,6 +65,7 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
 // Custom Prometheus metrics (external_call_duration_seconds)
 builder.Services.AddMetricsHttpHandler();
 builder.Services.AddJaegerTracing(builder.Configuration, "patient-service");
+builder.Services.AddPatientFusionCache(builder.Configuration, instanceName: "patient:");
 
 // Auth Service HTTP client
 builder.Services.AddHttpClient<AuthServiceClient>(client =>

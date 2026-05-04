@@ -24,13 +24,12 @@ public class UsersController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>Seed the first admin account. Anonymous — only works once.</summary>
+    /// <summary>Seed the first admin account. Anonymous — blocked once any admin exists.</summary>
     [HttpPost("/api/auth/seed")]
     [AllowAnonymous]
     public async Task<IActionResult> SeedAdmin([FromBody] CreateUserRequest request, CancellationToken ct)
     {
-        var existing = await _keycloak.FindUserByEmailAsync(request.Email, ct);
-        if (existing != null)
+        if (await _keycloak.AnyUserWithRoleAsync("admin", ct))
             return Conflict(new { error = "Admin account already exists" });
 
         var userId = await _keycloak.CreateUserAsync(request.Email, request.Password, request.FirstName, request.LastName, ct);

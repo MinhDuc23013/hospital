@@ -26,6 +26,9 @@ builder.Services.AddReverseProxy()
 // JWT authentication via Keycloak
 builder.Services.AddGatewayAuthentication(builder.Configuration);
 
+// Cache validated JWT claims — skips RSA re-verification on repeat requests
+builder.Services.AddJwtClaimCache();
+
 // Rate limiting
 builder.Services.AddGatewayRateLimiting();
 

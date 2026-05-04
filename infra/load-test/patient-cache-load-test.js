@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, fail } from 'k6';
 import { Rate, Trend, Counter } from 'k6/metrics';
 
 const cacheHits  = new Counter('cache_hits');
@@ -15,40 +15,42 @@ const PATIENT_IDS = [
   'c2929a7e-6d1b-4c1d-9efe-39c6df7d320b',
 ];
 
-// AppointmentService port 5002 — triggers PatientServiceClient FusionCache (L1→L2→HTTP)
-const BASE_URL       = __ENV.BASE_URL        || 'http://localhost:5002';
-const KEYCLOAK_URL   = __ENV.KEYCLOAK_URL    || 'http://localhost:8080';
-const CLIENT_SECRET  = __ENV.CLIENT_SECRET   || 'AwKekuhrL91DejQdQE4xGZPW56Q6XaVo';
+const BASE_URL      = __ENV.BASE_URL       || 'http://localhost:5084';
+// Use service name 'keycloak' (not 'hospital-keycloak') so token issuer matches gateway Keycloak:Authority
+const KEYCLOAK_URL  = __ENV.KEYCLOAK_URL   || 'http://keycloak:8080';
+const CLIENT_SECRET = __ENV.CLIENT_SECRET  || 'AwKekuhrL91DejQdQE4xGZPW56Q6XaVo';
 
 export const options = {
   scenarios: {
-    spike: {
+    // Ramp up slowly to find the gateway's saturation point
+    find_limit: {
       executor: 'ramping-arrival-rate',
-      startRate: 50,
+      startRate: 100,
       timeUnit: '1s',
-      preAllocatedVUs: 200,
-      maxVUs: 500,
+      preAllocatedVUs: 100,
+      maxVUs: 3500,          // host has 32GB RAM — low preAlloc to avoid startup spike
       stages: [
-        { duration: '10s', target: 200  },
-        { duration: '10s', target: 1000 },
-        { duration: '30s', target: 1000 },
-        { duration: '10s', target: 0    },
+        { duration: '20s', target: 500  },   // warm-up
+        { duration: '20s', target: 1000 },   // light
+        { duration: '20s', target: 1500 },   // moderate
+        { duration: '20s', target: 2000 },   // medium
+        { duration: '20s', target: 2500 },   // high
+        { duration: '20s', target: 3000 },   // very high
+        { duration: '20s', target: 3500 },   // extreme
+        { duration: '20s', target: 4000 },   // target ceiling
+        { duration: '20s', target: 4000 },   // hold to confirm
       ],
     },
   },
+  // abortOnFail: false — run to completion even when thresholds breach
   thresholds: {
-    http_req_failed:   ['rate<0.05'],
-    http_req_duration: ['p(95)<500'],
+    http_req_failed:   [{ threshold: 'rate<0.05',    abortOnFail: false }],
+    http_req_duration: [{ threshold: 'p(95)<500',    abortOnFail: false }],
   },
 };
 
-let _token = null;
-let _tokenExpiry = 0;
-
-function getToken() {
-  const now = Date.now() / 1000;
-  if (_token && now < _tokenExpiry - 30) return _token;
-
+// Single shared token — prevents Keycloak from being overwhelmed by 2000 VUs
+export function setup() {
   const res = http.post(
     `${KEYCLOAK_URL}/realms/hospital/protocol/openid-connect/token`,
     {
@@ -57,25 +59,22 @@ function getToken() {
       client_secret: CLIENT_SECRET,
       username:      'doctor-user',
       password:      '123456',
-    },
-    { tags: { type: 'auth' } }
+    }
   );
 
-  const body = JSON.parse(res.body);
-  _token       = body.access_token;
-  _tokenExpiry = now + (body.expires_in || 300);
-  return _token;
+  if (res.status !== 200) fail(`Token fetch failed: ${res.status} ${res.body}`);
+  const token = JSON.parse(res.body).access_token;
+  if (!token) fail('No access_token in response');
+  return { token };
 }
 
-export default function () {
-  const token     = getToken();
+export default function (data) {
   const patientId = PATIENT_IDS[Math.floor(Math.random() * PATIENT_IDS.length)];
-  // Calls AppointmentService → PatientServiceClient (FusionCache L1→L2→HTTP)
-  const url       = `${BASE_URL}/api/appointments/patients/${patientId}/exists`;
+  const url       = `${BASE_URL}/api/patients/${patientId}`;
 
   const res = http.get(url, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    tags: { type: 'patient_cache_probe' },
+    headers: { Authorization: `Bearer ${data.token}`, Accept: 'application/json' },
+    tags: { type: 'patient_lookup' },
   });
 
   const ok = check(res, {

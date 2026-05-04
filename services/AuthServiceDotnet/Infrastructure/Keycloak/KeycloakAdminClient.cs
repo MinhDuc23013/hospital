@@ -205,6 +205,19 @@ public class KeycloakAdminClient
         return await response.Content.ReadFromJsonAsync<JsonElement[]>(ct) ?? [];
     }
 
+    /// <summary>Check whether any user has the given realm role (max=1 for efficiency).</summary>
+    public async Task<bool> AnyUserWithRoleAsync(string roleName, CancellationToken ct)
+    {
+        await SetAuthHeaderAsync(ct);
+
+        var response = await _http.GetAsync(
+            $"{BaseUrl}/admin/realms/{Realm}/roles/{roleName}/users?first=0&max=1", ct);
+        response.EnsureSuccessStatusCode();
+
+        var users = await response.Content.ReadFromJsonAsync<JsonElement[]>(ct);
+        return users?.Length > 0;
+    }
+
     /// <summary>Remove a realm role from a user.</summary>
     public async Task RemoveRoleAsync(string userId, string roleName, CancellationToken ct)
     {
