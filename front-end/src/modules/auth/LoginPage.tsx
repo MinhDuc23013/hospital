@@ -1,51 +1,39 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
-import keycloak from '../../auth/keycloak';
-import { saveSession } from '../../auth/session';
 import { useAuthStore } from '../../store/authStore';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5084';
 const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8080';
-const CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'hospital-frontend';
+const CLIENT_ID    = import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'hospital-frontend';
 
 function loginWithGoogle() {
   const redirectUri = `${window.location.origin}/auth/callback`;
   const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    redirect_uri: redirectUri,
+    client_id:     CLIENT_ID,
+    redirect_uri:  redirectUri,
     response_type: 'code',
-    scope: 'openid email profile',
-    kc_idp_hint: 'google',
+    scope:         'openid email profile',
+    kc_idp_hint:   'google',
   });
   window.location.href = `${KEYCLOAK_URL}/realms/hospital/protocol/openid-connect/auth?${params}`;
 }
 
-interface TokenResponse {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  token_type: string;
-}
-
 export default function LoginPage() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const setAuthenticated = useAuthStore(s => s.setAuthenticated);
+  const navigate        = useNavigate();
+  const [searchParams]  = useSearchParams();
+  const setUser         = useAuthStore(s => s.setUser);
 
-  // 'patient' (no MFA) or 'staff' (admin/doctor, MFA required)
   const loginAs = searchParams.get('as') === 'staff' ? 'staff' : 'patient';
   const isStaff = loginAs === 'staff';
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [totp, setTotp] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>();
-  const [retryAfter, setRetryAfter] = useState<number>();
-  const [needsTotp, setNeedsTotp] = useState(false);
-  const [needsTotpSetup, setNeedsTotpSetup] = useState(false);
+  const [username, setUsername]                     = useState('');
+  const [password, setPassword]                     = useState('');
+  const [totp, setTotp]                             = useState('');
+  const [showPassword, setShowPassword]             = useState(false);
+  const [loading, setLoading]                       = useState(false);
+  const [error, setError]                           = useState<string>();
+  const [retryAfter, setRetryAfter]                 = useState<number>();
+  const [needsTotp, setNeedsTotp]                   = useState(false);
+  const [needsTotpSetup, setNeedsTotpSetup]         = useState(false);
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,38 +43,29 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const params: Record<string, string> = {
-        grant_type: 'password',
-        client_id: CLIENT_ID,
-        username,
-        password,
-      };
-      if (totp) params.totp = totp;
+      const res = await fetch('/bff/login', {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ username, password, totp: totp || undefined }),
+      });
 
-      const { data } = await axios.post<TokenResponse>(
-        `${API_BASE}/api/auth/token`,
-        new URLSearchParams(params),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
-      );
+      if (res.ok) {
+        const { user } = await res.json();
+        setUser(user);
+        navigate('/dashboard', { replace: true });
+        return;
+      }
 
-      saveSession(keycloak, data);
-      setAuthenticated(true);
-      navigate('/dashboard', { replace: true });
-    } catch (err: any) {
-      const status = err.response?.status;
-      const body = err.response?.data;
+      const body   = await res.json().catch(() => ({}));
+      const status = res.status;
       const keycloakError = body?.error_description || body?.error;
 
       if (status === 429) {
         const seconds = body?.error?.retryAfter ?? 600;
         setRetryAfter(seconds);
-        setError(
-          `Too many failed attempts. Try again in ${Math.ceil(seconds / 60)} minute${seconds > 60 ? 's' : ''}.`,
-        );
+        setError(`Too many failed attempts. Try again in ${Math.ceil(seconds / 60)} minute${seconds > 60 ? 's' : ''}.`);
       } else if (keycloakError?.toLowerCase().includes('not fully set up')) {
-        // Account has pending required actions — most common:
-        // - VERIFY_EMAIL (patient chưa verify)
-        // - CONFIGURE_TOTP (staff chưa setup MFA)
         if (isStaff) {
           setNeedsTotpSetup(true);
           setError('MFA setup required. Please complete TOTP setup first.');
@@ -95,22 +74,21 @@ export default function LoginPage() {
           setError('Email not verified. Please check your inbox and click the verification link.');
         }
       } else if ((status === 401 || status === 400) && !totp) {
-        // First attempt failed — could be wrong password OR missing TOTP (Keycloak returns same error)
-        // Show TOTP input; user retries with either correct password or TOTP code
         setNeedsTotp(true);
         setError('If MFA is enabled, enter your 6-digit authenticator code. Otherwise, check your password.');
       } else if ((status === 401 || status === 400) && totp) {
-        // TOTP provided but still failed — either password wrong or TOTP wrong
         setError('Invalid credentials or authenticator code');
       } else {
         setError('Login failed. Please try again.');
       }
+    } catch {
+      setError('Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const keycloakSetupUrl = `${import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8080'}/realms/hospital/account/`;
+  const keycloakSetupUrl = `${KEYCLOAK_URL}/realms/hospital/account/`;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-gray-100 p-4">
@@ -128,80 +106,49 @@ export default function LoginPage() {
               {isStaff ? 'Staff Sign In' : 'Patient Sign In'}
             </h1>
             <p className="text-sm text-gray-500 mt-1">
-              {isStaff
-                ? 'Admin / Doctor access — MFA required'
-                : 'Access your health records'}
+              {isStaff ? 'Admin / Doctor access — MFA required' : 'Access your health records'}
             </p>
 
-            {/* Toggle between patient / staff */}
             <div className="mt-4 inline-flex bg-gray-100 rounded-lg p-1 text-xs">
-              <Link
-                to="/login?as=patient"
-                className={`px-4 py-1.5 rounded-md font-medium transition ${
-                  !isStaff ? 'bg-white shadow text-emerald-700' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Patient
-              </Link>
-              <Link
-                to="/login?as=staff"
-                className={`px-4 py-1.5 rounded-md font-medium transition ${
-                  isStaff ? 'bg-white shadow text-teal-700' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Staff
-              </Link>
+              <Link to="/login?as=patient" className={`px-4 py-1.5 rounded-md font-medium transition ${
+                !isStaff ? 'bg-white shadow text-emerald-700' : 'text-gray-600 hover:text-gray-900'
+              }`}>Patient</Link>
+              <Link to="/login?as=staff" className={`px-4 py-1.5 rounded-md font-medium transition ${
+                isStaff ? 'bg-white shadow text-teal-700' : 'text-gray-600 hover:text-gray-900'
+              }`}>Staff</Link>
             </div>
           </div>
 
           {error && (
-            <div
-              className={`mb-4 p-3 rounded text-sm border ${
-                retryAfter
-                  ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
-                  : 'bg-red-50 border-red-200 text-red-700'
-              }`}
-            >
-              {error}
-            </div>
+            <div className={`mb-4 p-3 rounded text-sm border ${
+              retryAfter
+                ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                : 'bg-red-50 border-red-200 text-red-700'
+            }`}>{error}</div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Username
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
               <input
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                type="text"
-                required
-                autoFocus
-                autoComplete="username"
+                value={username} onChange={e => setUsername(e.target.value)}
+                type="text" required autoFocus autoComplete="username"
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                 placeholder="Enter username"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
               <div className="relative">
                 <input
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  autoComplete="current-password"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  type={showPassword ? 'text' : 'password'} required autoComplete="current-password"
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm pr-20 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                   placeholder="Enter password"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(s => !s)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-emerald-700 hover:text-emerald-900 px-2"
-                >
+                <button type="button" onClick={() => setShowPassword(s => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-emerald-700 hover:text-emerald-900 px-2">
                   {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
@@ -209,33 +156,21 @@ export default function LoginPage() {
 
             {needsTotp && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Authenticator Code
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Authenticator Code</label>
                 <input
-                  value={totp}
-                  onChange={e => setTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  type="text"
-                  inputMode="numeric"
-                  autoFocus
-                  maxLength={6}
-                  autoComplete="one-time-code"
+                  value={totp} onChange={e => setTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  type="text" inputMode="numeric" autoFocus maxLength={6} autoComplete="one-time-code"
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm tracking-widest text-center font-mono focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                   placeholder="000000"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Enter the 6-digit code from your authenticator app
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Enter the 6-digit code from your authenticator app</p>
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading || !!retryAfter}
+            <button type="submit" disabled={loading || !!retryAfter}
               className={`w-full py-2 text-white rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
                 isStaff ? 'bg-teal-700 hover:bg-teal-800' : 'bg-emerald-700 hover:bg-emerald-800'
-              }`}
-            >
+              }`}>
               {loading ? 'Signing in...' : needsTotp ? 'Verify & Sign in' : 'Sign in'}
             </button>
           </form>
@@ -251,7 +186,9 @@ export default function LoginPage() {
                 Please check your inbox (and spam folder) for the verification link.
               </p>
               <p className="text-xs text-yellow-700">
-                Didn't receive the email? Check <a href="http://localhost:8025" target="_blank" rel="noopener noreferrer" className="underline hover:text-yellow-900">MailHog</a> (dev) or contact support.
+                Didn't receive the email? Check{' '}
+                <a href="http://localhost:8025" target="_blank" rel="noopener noreferrer" className="underline hover:text-yellow-900">MailHog</a>{' '}
+                (dev) or contact support.
               </p>
             </div>
           )}
@@ -259,27 +196,20 @@ export default function LoginPage() {
           {needsTotpSetup && (
             <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-800">
               <p className="font-medium mb-2">MFA Setup Required</p>
-              <p className="mb-2">
-                This account requires multi-factor authentication. Setup your authenticator app first:
-              </p>
+              <p className="mb-2">This account requires multi-factor authentication. Setup your authenticator app first:</p>
               <ol className="list-decimal list-inside space-y-1 mb-2">
                 <li>Click the button below to open account settings</li>
                 <li>Sign in with your password</li>
                 <li>Scan QR code with Google Authenticator / Authy</li>
                 <li>Return here to login with your new 6-digit code</li>
               </ol>
-              <a
-                href={keycloakSetupUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-1 px-3 py-1.5 bg-emerald-700 text-white rounded hover:bg-emerald-800"
-              >
+              <a href={keycloakSetupUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-block mt-1 px-3 py-1.5 bg-emerald-700 text-white rounded hover:bg-emerald-800">
                 Open MFA Setup →
               </a>
             </div>
           )}
 
-          {/* Google login + Register link — only for patients */}
           {!isStaff && (
             <>
               <div className="my-5 flex items-center gap-3">
@@ -288,11 +218,8 @@ export default function LoginPage() {
                 <div className="flex-1 h-px bg-gray-200" />
               </div>
 
-              <button
-                type="button"
-                onClick={loginWithGoogle}
-                className="w-full py-2 border border-gray-300 rounded font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-3"
-              >
+              <button type="button" onClick={loginWithGoogle}
+                className="w-full py-2 border border-gray-300 rounded font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-3">
                 <svg width="18" height="18" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -304,9 +231,7 @@ export default function LoginPage() {
 
               <div className="mt-6 text-center text-sm text-gray-600">
                 Don't have an account?{' '}
-                <Link to="/register" className="text-emerald-700 hover:text-emerald-900 font-medium">
-                  Create one
-                </Link>
+                <Link to="/register" className="text-emerald-700 hover:text-emerald-900 font-medium">Create one</Link>
               </div>
             </>
           )}
@@ -323,9 +248,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="mt-4 text-center text-xs text-gray-400">
-          © Hospital HRM System
-        </div>
+        <div className="mt-4 text-center text-xs text-gray-400">© Hospital HRM System</div>
       </div>
     </div>
   );

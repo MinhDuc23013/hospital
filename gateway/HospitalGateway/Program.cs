@@ -1,3 +1,4 @@
+using HospitalGateway.Bff;
 using HospitalGateway.Extensions;
 using HospitalShared.Metrics;
 using HospitalShared.Tracing;
@@ -66,10 +67,13 @@ builder.Services.AddHttpClient("aggregation", c => c.Timeout = TimeSpan.FromSeco
 // Booking aggregation service
 builder.Services.AddScoped<BookingAggregationService>();
 
-// Redis for login brute-force protection
+// Redis — shared by brute-force protection and BFF session store
 var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "redis:6379";
 builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(_ =>
     StackExchange.Redis.ConnectionMultiplexer.Connect(redisConn));
+
+// BFF session service — manages httpOnly cookie ↔ Redis token store
+builder.Services.AddSingleton<BffSessionService>();
 
 var app = builder.Build();
 
@@ -84,6 +88,8 @@ app.UseHttpMetrics();
 app.UseSerilogRequestLogging();
 app.UseCors();                           // before auth — let preflight OPTIONS pass
 app.UseMiddleware<CorrelationIdMiddleware>();
+// Inject Bearer token from BFF session cookie before JWT validation runs
+app.UseMiddleware<BffTokenInjectionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();

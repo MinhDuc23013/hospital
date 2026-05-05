@@ -1,43 +1,24 @@
 import axios from 'axios';
-import keycloak from '../auth/keycloak';
-import { saveSession, clearSession } from '../auth/session';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5084';
-const CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'hospital-frontend';
+import { useAuthStore } from '../store/authStore';
 
 const api = axios.create({
-  baseURL: API_BASE,
+  baseURL: '/',
   timeout: 15_000,
+  withCredentials: true,  // send bff_session cookie on every request
 });
 
-// In-flight refresh promise to avoid duplicate refresh calls
-let refreshPromise: Promise<string | null> | null = null;
+// In-flight refresh promise — prevents duplicate refresh calls on concurrent 401s
+let refreshPromise: Promise<boolean> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
+async function refreshSession(): Promise<boolean> {
   if (refreshPromise) return refreshPromise;
-
-  const refreshToken = keycloak.refreshToken ?? localStorage.getItem('hrm_refresh_token');
-  if (!refreshToken) return null;
 
   refreshPromise = (async () => {
     try {
-      const body = new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: CLIENT_ID,
-        refresh_token: refreshToken,
-      });
-
-      const { data } = await axios.post(
-        `${API_BASE}/api/auth/token`,
-        body,
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
-      );
-
-      saveSession(keycloak, data);
-      return data.access_token as string;
-    } catch (err) {
-      clearSession(keycloak);
-      return null;
+      const res = await fetch('/bff/refresh', { method: 'POST', credentials: 'include' });
+      return res.ok;
+    } catch {
+      return false;
     } finally {
       refreshPromise = null;
     }
@@ -46,18 +27,7 @@ async function refreshAccessToken(): Promise<string | null> {
   return refreshPromise;
 }
 
-// Attach Bearer token on every request
-api.interceptors.request.use(async config => {
-  if (keycloak.token) {
-    config.headers['Authorization'] = `Bearer ${keycloak.token}`;
-  }
-  if (keycloak.subject) {
-    config.headers['X-User-Id'] = keycloak.subject;
-  }
-  return config;
-});
-
-// Handle 401 with refresh + retry
+// Handle 401: refresh session then retry once
 api.interceptors.response.use(
   res => res,
   async err => {
@@ -66,13 +36,11 @@ api.interceptors.response.use(
     if (err.response?.status === 401 && !original._retry) {
       original._retry = true;
 
-      const newToken = await refreshAccessToken();
-      if (newToken) {
-        original.headers['Authorization'] = `Bearer ${newToken}`;
-        return api(original);
-      }
+      const refreshed = await refreshSession();
+      if (refreshed) return api(original);
 
-      // Refresh failed → redirect to login
+      // Refresh failed — clear store and redirect to login
+      useAuthStore.getState().setUser(null);
       window.location.href = '/login';
     }
 

@@ -1,61 +1,41 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
-import keycloak from '../../auth/keycloak';
-import { saveSession } from '../../auth/session';
 import { useAuthStore } from '../../store/authStore';
 
-const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8080';
-const CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'hospital-frontend';
-const REDIRECT_URI = `${window.location.origin}/auth/callback`;
-
 export default function AuthCallbackPage() {
-  const [params] = useSearchParams();
-  const navigate = useNavigate();
-  const setAuthenticated = useAuthStore(s => s.setAuthenticated);
+  const [params]  = useSearchParams();
+  const navigate  = useNavigate();
+  const setUser   = useAuthStore(s => s.setUser);
 
   useEffect(() => {
-    const code = params.get('code');
+    const code  = params.get('code');
     const error = params.get('error');
 
-    if (error) {
-      navigate(`/login?error=${encodeURIComponent(error)}`, { replace: true });
-      return;
-    }
+    if (error) { navigate(`/login?error=${encodeURIComponent(error)}`, { replace: true }); return; }
+    if (!code)  { navigate('/login', { replace: true }); return; }
 
-    if (!code) {
-      navigate('/login', { replace: true });
-      return;
-    }
-
-    // Exchange authorization code for tokens
-    const exchangeCode = async () => {
+    const exchange = async () => {
       try {
-        const body = new URLSearchParams({
-          grant_type: 'authorization_code',
-          client_id: CLIENT_ID,
-          code,
-          redirect_uri: REDIRECT_URI,
+        const res = await fetch('/bff/callback', {
+          method:      'POST',
+          credentials: 'include',
+          headers:     { 'Content-Type': 'application/json' },
+          body:        JSON.stringify({ code, redirectUri: `${window.location.origin}/auth/callback` }),
         });
 
-        // Call Keycloak directly (token endpoint for Authorization Code Flow)
-        const { data } = await axios.post(
-          `${KEYCLOAK_URL}/realms/hospital/protocol/openid-connect/token`,
-          body,
-          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
-        );
+        if (!res.ok) throw new Error(`BFF callback failed: ${res.status}`);
 
-        saveSession(keycloak, data);
-        setAuthenticated(true);
+        const { user } = await res.json();
+        setUser(user);
         navigate('/dashboard', { replace: true });
-      } catch (err: any) {
+      } catch (err) {
         console.error('Token exchange failed', err);
         navigate('/login?error=oauth_exchange_failed', { replace: true });
       }
     };
 
-    exchangeCode();
-  }, [params, navigate, setAuthenticated]);
+    exchange();
+  }, [params, navigate, setUser]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

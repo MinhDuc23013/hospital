@@ -1,30 +1,29 @@
-import keycloak from './keycloak';
-import { clearSession } from './session';
 import { useAuthStore } from '../store/authStore';
 
 export type Role = 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'receptionist' | 'patient';
 
 export function useAuth() {
-  const token = keycloak.token;
-  const userInfo = keycloak.tokenParsed;
-  const roles: Role[] = (keycloak.tokenParsed?.realm_access?.roles ?? []) as Role[];
+  const user = useAuthStore(s => s.user);
+  const setUser = useAuthStore(s => s.setUser);
+  const setAuthenticated = useAuthStore(s => s.setAuthenticated);
 
+  const roles = (user?.roles ?? []) as Role[];
   const hasRole = (...required: Role[]) => required.some(r => roles.includes(r));
 
-  const logout = () => {
-    clearSession(keycloak);
-    useAuthStore.getState().setAuthenticated(false);
+  const logout = async () => {
+    await fetch('/bff/logout', { method: 'POST', credentials: 'include' });
+    setUser(null);
+    setAuthenticated(false);
     window.location.href = '/login';
   };
 
   return {
-    token,
-    userInfo,
+    user,
     roles,
     hasRole,
     logout,
-    userId: userInfo?.sub as string | undefined,
-    email: userInfo?.email as string | undefined,
-    fullName: userInfo?.name as string | undefined,
+    userId: user?.userId,
+    email: user?.email,
+    fullName: user?.fullName,
   };
 }

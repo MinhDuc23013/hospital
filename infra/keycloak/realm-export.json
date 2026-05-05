@@ -38,10 +38,12 @@
       "clientId": "hospital-frontend",
       "name": "Hospital Frontend App",
       "enabled": true,
-      "publicClient": true,
+      "publicClient": false,
+      "secret": "hospital-frontend-secret",
       "standardFlowEnabled": true,
-      "redirectUris": ["http://localhost:3001/*"],
-      "webOrigins": ["http://localhost:3001"]
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"]
     },
     {
       "clientId": "hospital-patient-portal",

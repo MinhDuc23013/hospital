@@ -12,8 +12,25 @@ export default function AdminUsersPage() {
   const [editTarget, setEditTarget] = useState<KeycloakUser | null>(null);
   const [resetPasswordTarget, setResetPasswordTarget] = useState<KeycloakUser | null>(null);
 
+  const [meResult, setMeResult] = useState<string | null>(null);
+  const [meLoading, setMeLoading] = useState(false);
+
   const { data, isLoading, isError } = useAdminUsers(appliedSearch || undefined, page, 20);
   const deleteMutation = useDeleteAdminUser();
+
+  const handleCheckMe = async () => {
+    setMeLoading(true);
+    setMeResult(null);
+    try {
+      const res = await fetch('/bff/me', { credentials: 'include' });
+      const body = await res.json();
+      setMeResult(JSON.stringify(body, null, 2));
+    } catch (e) {
+      setMeResult('Error: ' + String(e));
+    } finally {
+      setMeLoading(false);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,11 +48,21 @@ export default function AdminUsersPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">User Management</h1>
-        <button onClick={() => setShowCreate(true)}
-          className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-          + Add User
-        </button>
+        <div className="flex gap-2">
+          <button onClick={handleCheckMe} disabled={meLoading}
+            className="px-4 py-2 bg-gray-700 text-white text-sm rounded hover:bg-gray-800 disabled:opacity-50">
+            {meLoading ? 'Loading...' : 'Check /bff/me'}
+          </button>
+          <button onClick={() => setShowCreate(true)}
+            className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+            + Add User
+          </button>
+        </div>
       </div>
+
+      {meResult && (
+        <pre className="mb-4 p-3 bg-gray-900 text-green-400 text-xs rounded overflow-auto max-h-48">{meResult}</pre>
+      )}
 
       <form onSubmit={handleSearch} className="flex gap-3 mb-6">
         <input value={searchInput} onChange={e => setSearchInput(e.target.value)}
