@@ -14,6 +14,7 @@ volumes:
   keycloak-pgdata:
   seqdata:
   logstashdata:
+  search-diag:
 
 services:
   # MailHog — dev SMTP server (captures emails, no real delivery)
@@ -794,6 +795,10 @@ services:
       - Services__AppointmentService=http://appointment-service:5002
       - Services__DoctorScheduleService=http://doctor-schedule-service:5007
       - Services__PaymentService=http://payment-service:5008
+      # expose diagnostics socket for dotnet-monitor sidecar
+      - DOTNET_DiagnosticPorts=/diag/port,nosuspend,connect
+    volumes:
+      - search-diag:/diag
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -805,6 +810,29 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  # dotnet-monitor sidecar for search-service — REST API on :52320 for diagnostics
+  # Collect gcdump: GET http://localhost:52320/gcdump
+  # Collect dump:   GET http://localhost:52320/dump?type=Full
+  # List processes: GET http://localhost:52320/processes
+  search-monitor:
+    image: mcr.microsoft.com/dotnet/monitor:8
+    container_name: search-monitor
+    command: ["collect", "--no-auth", "--urls", "http://+:52320", "--metricUrls", "http://+:52321"]
+    user: root
+    ports:
+      - "52320:52320"
+    environment:
+      - DOTNETMONITOR_DiagnosticPort__ConnectionMode=Listen
+      - DOTNETMONITOR_DiagnosticPort__EndpointName=/diag/port
+      - DOTNETMONITOR_Storage__DumpTempFolder=/tmp/dumps
+    volumes:
+      - search-diag:/diag
+    depends_on:
+      - search-service
     restart: unless-stopped
     networks:
       - hospital-network
