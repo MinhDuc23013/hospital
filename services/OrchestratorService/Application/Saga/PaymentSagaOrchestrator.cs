@@ -17,15 +17,15 @@ namespace OrchestratorService.Application.Saga;
 ///   Step 4 — PaymentEventConsumer listens for PaymentCompletedEvent / PaymentFailedEvent
 ///   Step 5 — Mark saga Completed or Failed accordingly
 /// </summary>
-public class PaymentSagaOrchestrator
+public class PaymentSagaOrchestrator : IPaymentSagaOrchestrator
 {
     private readonly IPaymentSagaRepository _sagaRepo;
-    private readonly PaymentServiceClient _paymentClient;
+    private readonly IPaymentServiceClient _paymentClient;
     private readonly ILogger<PaymentSagaOrchestrator> _logger;
 
     public PaymentSagaOrchestrator(
         IPaymentSagaRepository sagaRepo,
-        PaymentServiceClient paymentClient,
+        IPaymentServiceClient paymentClient,
         ILogger<PaymentSagaOrchestrator> logger)
     {
         _sagaRepo = sagaRepo;

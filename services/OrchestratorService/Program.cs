@@ -5,8 +5,10 @@ using HospitalShared.Metrics;
 using HospitalShared.Resilience;
 using HospitalShared.Tracing;
 using Microsoft.EntityFrameworkCore;
+using Castle.DynamicProxy;
 using OrchestratorService.Application.Saga;
 using OrchestratorService.Infrastructure.BackgroundJobs;
+using OrchestratorService.Infrastructure.Interceptors;
 using OrchestratorService.Infrastructure.Consumers;
 using OrchestratorService.Infrastructure.HttpClients;
 using OrchestratorService.Infrastructure.MessageBus;
@@ -66,13 +68,21 @@ builder.Services.AddMetricsHttpHandler();
 builder.Services.AddJaegerTracing(builder.Configuration, "orchestrator-service");
 builder.Services.AddPatientFusionCache(builder.Configuration, instanceName: "orchestrator:");
 
-// HTTP clients
+// Timing interceptor (singleton — ProxyGenerator is thread-safe and expensive to create)
+builder.Services.AddSingleton(new ProxyGenerator());
+builder.Services.AddSingleton<TimingInterceptor>();
+
+// HTTP clients — typed client registered for IHttpClientFactory; interface proxy wraps it for timing
 builder.Services.AddHttpClient<PatientServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["Services:PatientService"] ?? "http://patient-service:5001");
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
+builder.Services.AddScoped<IPatientServiceClient>(sp =>
+    sp.GetRequiredService<ProxyGenerator>().CreateInterfaceProxyWithTarget<IPatientServiceClient>(
+        sp.GetRequiredService<PatientServiceClient>(),
+        sp.GetRequiredService<TimingInterceptor>()));
 
 builder.Services.AddHttpClient<AppointmentServiceClient>(client =>
 {
@@ -80,6 +90,10 @@ builder.Services.AddHttpClient<AppointmentServiceClient>(client =>
         builder.Configuration["Services:AppointmentService"] ?? "http://appointment-service:5002");
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
+builder.Services.AddScoped<IAppointmentServiceClient>(sp =>
+    sp.GetRequiredService<ProxyGenerator>().CreateInterfaceProxyWithTarget<IAppointmentServiceClient>(
+        sp.GetRequiredService<AppointmentServiceClient>(),
+        sp.GetRequiredService<TimingInterceptor>()));
 
 builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
 {
@@ -87,6 +101,10 @@ builder.Services.AddHttpClient<DoctorScheduleServiceClient>(client =>
         builder.Configuration["Services:DoctorScheduleService"] ?? "http://doctor-schedule-service:5007");
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
+builder.Services.AddScoped<IDoctorScheduleServiceClient>(sp =>
+    sp.GetRequiredService<ProxyGenerator>().CreateInterfaceProxyWithTarget<IDoctorScheduleServiceClient>(
+        sp.GetRequiredService<DoctorScheduleServiceClient>(),
+        sp.GetRequiredService<TimingInterceptor>()));
 
 builder.Services.AddHttpClient<PaymentServiceClient>(client =>
 {
@@ -94,6 +112,10 @@ builder.Services.AddHttpClient<PaymentServiceClient>(client =>
         builder.Configuration["Services:PaymentService"] ?? "http://payment-service:5008");
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddTokenForwarding().AddMetricsHandler().AddResilienceHandler();
+builder.Services.AddScoped<IPaymentServiceClient>(sp =>
+    sp.GetRequiredService<ProxyGenerator>().CreateInterfaceProxyWithTarget<IPaymentServiceClient>(
+        sp.GetRequiredService<PaymentServiceClient>(),
+        sp.GetRequiredService<TimingInterceptor>()));
 
 // Repositories
 builder.Services.AddScoped<IBookingSagaRepository, BookingSagaRepository>();
@@ -106,9 +128,18 @@ builder.Services.AddScoped<EventPublisher>();
 builder.Services.AddSingleton<NotificationPublisher>();
 builder.Services.AddSingleton<HospitalShared.Kafka.KafkaDlqPublisher>();
 
-// Saga orchestrators
+// Saga orchestrators — concrete registered for DI resolution; interface proxy wraps for timing
 builder.Services.AddScoped<BookingSagaOrchestrator>();
+builder.Services.AddScoped<IBookingSagaOrchestrator>(sp =>
+    sp.GetRequiredService<ProxyGenerator>().CreateInterfaceProxyWithTarget<IBookingSagaOrchestrator>(
+        sp.GetRequiredService<BookingSagaOrchestrator>(),
+        sp.GetRequiredService<TimingInterceptor>()));
+
 builder.Services.AddScoped<PaymentSagaOrchestrator>();
+builder.Services.AddScoped<IPaymentSagaOrchestrator>(sp =>
+    sp.GetRequiredService<ProxyGenerator>().CreateInterfaceProxyWithTarget<IPaymentSagaOrchestrator>(
+        sp.GetRequiredService<PaymentSagaOrchestrator>(),
+        sp.GetRequiredService<TimingInterceptor>()));
 
 // Background workers
 builder.Services.AddHostedService<CompensationRetryWorker>();

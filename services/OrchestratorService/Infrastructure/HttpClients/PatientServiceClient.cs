@@ -5,7 +5,7 @@ using ZiggyCreatures.Caching.Fusion;
 namespace OrchestratorService.Infrastructure.HttpClients;
 
 /// <summary>HTTP client for validating patient existence before booking appointments.</summary>
-public class PatientServiceClient
+public class PatientServiceClient : IPatientServiceClient
 {
     private readonly HttpClient _httpClient;
     private readonly IFusionCache _cache;

@@ -4,7 +4,7 @@ using System.Net.Http.Json;
 namespace OrchestratorService.Infrastructure.HttpClients;
 
 /// <summary>HTTP client for interacting with PaymentService (create/process/refund).</summary>
-public class PaymentServiceClient
+public class PaymentServiceClient : IPaymentServiceClient
 {
     private readonly HttpClient _http;
     private readonly ILogger<PaymentServiceClient> _logger;

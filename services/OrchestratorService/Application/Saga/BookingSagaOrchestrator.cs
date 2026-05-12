@@ -20,14 +20,14 @@ namespace OrchestratorService.Application.Saga;
 /// OutboxPublishWorker pushes it to Kafka → BookingAsyncPhaseConsumer picks it up.
 /// AppointmentService is called via HTTP — no direct DB access to appointment tables.
 /// </summary>
-public partial class BookingSagaOrchestrator
+public partial class BookingSagaOrchestrator : IBookingSagaOrchestrator
 {
     private readonly IBookingSagaRepository _sagaRepo;
     private readonly IBookingSagaLogRepository _logRepo;
     private readonly ICompensationOutboxRepository _outboxRepo;
-    private readonly AppointmentServiceClient _appointmentClient;
-    private readonly PatientServiceClient _patientClient;
-    private readonly DoctorScheduleServiceClient _scheduleClient;
+    private readonly IAppointmentServiceClient _appointmentClient;
+    private readonly IPatientServiceClient _patientClient;
+    private readonly IDoctorScheduleServiceClient _scheduleClient;
     private readonly EventPublisher _events;
     private readonly NotificationPublisher _notifications;
     private readonly ILogger<BookingSagaOrchestrator> _logger;
@@ -39,9 +39,9 @@ public partial class BookingSagaOrchestrator
         IBookingSagaRepository sagaRepo,
         IBookingSagaLogRepository logRepo,
         ICompensationOutboxRepository outboxRepo,
-        AppointmentServiceClient appointmentClient,
-        PatientServiceClient patientClient,
-        DoctorScheduleServiceClient scheduleClient,
+        IAppointmentServiceClient appointmentClient,
+        IPatientServiceClient patientClient,
+        IDoctorScheduleServiceClient scheduleClient,
         EventPublisher events,
         NotificationPublisher notifications,
         ILogger<BookingSagaOrchestrator> logger)
@@ -97,6 +97,7 @@ public partial class BookingSagaOrchestrator
         }
 
         _logger.LogInformation("Saga {SagaId} started for patient {PatientId}", saga.Id, patientId);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
 
         try
         {
@@ -120,12 +121,13 @@ public partial class BookingSagaOrchestrator
             await _sagaRepo.SaveChangesAsync(ct); // single flush: saga + log + outbox
 
             _logger.LogInformation(
-                "Saga {SagaId} sync phase complete. Appointment={AppointmentId}, Slot={SlotId}",
-                saga.Id, saga.AppointmentId, saga.SlotId);
+                "Saga {SagaId} sync phase complete. Appointment={AppointmentId}, Slot={SlotId}, ElapsedMs={ElapsedMs}",
+                saga.Id, saga.AppointmentId, saga.SlotId, sw.ElapsedMilliseconds);
         }
         catch (SagaStepException ex)
         {
-            _logger.LogWarning(ex, "Saga {SagaId} sync phase failed at {Step}", saga.Id, saga.CurrentStep);
+            _logger.LogWarning(ex, "Saga {SagaId} sync phase failed at {Step} after {ElapsedMs}ms",
+                saga.Id, saga.CurrentStep, sw.ElapsedMilliseconds);
             var failedFrom = saga.CurrentStep.ToString();
             saga.MarkFailed(ex.Message);
             await _sagaRepo.SaveChangesAsync(ct);

@@ -6,7 +6,7 @@ namespace OrchestratorService.Infrastructure.HttpClients;
 /// HTTP client for AppointmentService CRUD operations.
 /// OrchestratorService never touches appointment tables directly — all writes go through here.
 /// </summary>
-public class AppointmentServiceClient
+public class AppointmentServiceClient : IAppointmentServiceClient
 {
     private readonly HttpClient _http;
     private readonly ILogger<AppointmentServiceClient> _logger;
@@ -28,7 +28,7 @@ public class AppointmentServiceClient
             var body = new
             {
                 patientId,
-                providerId = doctorId,
+                doctorId,
                 scheduledTime,
                 durationMinutes,
                 notes

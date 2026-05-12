@@ -94,7 +94,7 @@ public class PaymentEventConsumer : BackgroundService
     private async Task ProcessMessageAsync(ConsumeResult<string, string> result, CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
-        var orchestrator = scope.ServiceProvider.GetRequiredService<PaymentSagaOrchestrator>();
+        var orchestrator = scope.ServiceProvider.GetRequiredService<IPaymentSagaOrchestrator>();
 
         if (result.Topic == TopicCompleted)
         {

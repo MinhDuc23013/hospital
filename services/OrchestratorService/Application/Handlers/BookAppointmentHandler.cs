@@ -8,9 +8,9 @@ namespace OrchestratorService.Application.Handlers;
 /// <summary>MediatR handler that delegates to BookingSagaOrchestrator.</summary>
 public class BookAppointmentHandler : IRequestHandler<BookAppointmentCommand, BookAppointmentResult>
 {
-    private readonly BookingSagaOrchestrator _orchestrator;
+    private readonly IBookingSagaOrchestrator _orchestrator;
 
-    public BookAppointmentHandler(BookingSagaOrchestrator orchestrator) => _orchestrator = orchestrator;
+    public BookAppointmentHandler(IBookingSagaOrchestrator orchestrator) => _orchestrator = orchestrator;
 
     public async Task<BookAppointmentResult> Handle(BookAppointmentCommand cmd, CancellationToken ct)
     {

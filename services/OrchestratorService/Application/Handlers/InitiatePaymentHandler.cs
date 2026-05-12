@@ -6,9 +6,9 @@ namespace OrchestratorService.Application.Handlers;
 
 public class InitiatePaymentHandler : IRequestHandler<InitiatePaymentCommand, PaymentSagaResult>
 {
-    private readonly PaymentSagaOrchestrator _orchestrator;
+    private readonly IPaymentSagaOrchestrator _orchestrator;
 
-    public InitiatePaymentHandler(PaymentSagaOrchestrator orchestrator)
+    public InitiatePaymentHandler(IPaymentSagaOrchestrator orchestrator)
         => _orchestrator = orchestrator;
 
     public async Task<PaymentSagaResult> Handle(InitiatePaymentCommand cmd, CancellationToken ct)

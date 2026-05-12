@@ -111,7 +111,7 @@ public class BookingAsyncPhaseConsumer : BackgroundService
 
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<OrchestratorDbContext>();
-        var orchestrator = scope.ServiceProvider.GetRequiredService<BookingSagaOrchestrator>();
+        var orchestrator = scope.ServiceProvider.GetRequiredService<IBookingSagaOrchestrator>();
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 

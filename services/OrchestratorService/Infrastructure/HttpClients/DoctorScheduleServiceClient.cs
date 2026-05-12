@@ -4,7 +4,7 @@ using System.Net.Http.Json;
 namespace OrchestratorService.Infrastructure.HttpClients;
 
 /// <summary>HTTP client for interacting with DoctorScheduleService (reserve/confirm/release slots).</summary>
-public class DoctorScheduleServiceClient
+public class DoctorScheduleServiceClient : IDoctorScheduleServiceClient
 {
     private readonly HttpClient _http;
     private readonly ILogger<DoctorScheduleServiceClient> _logger;
