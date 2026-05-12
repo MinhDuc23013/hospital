@@ -5,6 +5,7 @@ networks:
 volumes:
   pgdata:
   pgdata-replica:
+  pgdata-logical:
   mongodata:
   sqldata:
   rabbitmqdata:
@@ -30,14 +31,15 @@ services:
       - hospital-network
 
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: hospital-postgres
     command: >
       postgres
       -c max_connections=200
       -c shared_buffers=256MB
-      -c wal_level=replica
-      -c max_wal_senders=3
+      -c wal_level=logical
+      -c max_wal_senders=5
+      -c max_replication_slots=5
       -c wal_keep_size=64
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hospital}
@@ -60,7 +62,7 @@ services:
       - hospital-network
 
   postgres-replica:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: hospital-postgres-replica
     entrypoint: ["/bin/sh", "/scripts/start-replica.sh"]
     environment:
@@ -79,6 +81,36 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d hospital_db || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  postgres-logical:
+    image: postgres:16-alpine
+    container_name: hospital-postgres-logical
+    command: >
+      postgres
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c hot_standby=off
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hospital}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-hospital_db}
+    ports:
+      - "${POSTGRES_LOGICAL_PORT:-5436}:5432"
+    volumes:
+      - pgdata-logical:/var/lib/postgresql/data
+      - ./infra/scripts/setup-logical-replication.sh:/scripts/setup-logical-replication.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hospital} -d ${POSTGRES_DB:-hospital_db}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -268,7 +300,7 @@ services:
   # Dedicated PostgreSQL for Keycloak — isolated from app data
   # Production: replace with managed RDS (encrypted at rest + TLS in transit)
   keycloak-db:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: hospital-keycloak-db
     environment:
       POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}

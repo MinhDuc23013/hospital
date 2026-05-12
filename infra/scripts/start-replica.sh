@@ -43,4 +43,5 @@ exec su-exec postgres postgres \
   -c max_connections=200 \
   -c shared_buffers=256MB \
   -c hot_standby=on \
-  -c hot_standby_feedback=on
+  -c hot_standby_feedback=on \
+  -c wal_level=logical
