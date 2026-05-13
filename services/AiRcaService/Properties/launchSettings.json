@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "AiRcaService": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:63032;http://localhost:63033"
+    }
+  }
+}

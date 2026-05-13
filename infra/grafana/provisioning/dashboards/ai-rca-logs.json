@@ -1,0 +1,121 @@
+{
+  "id": null,
+  "uid": "ai-rca-logs",
+  "title": "AI Root Cause Analysis — Logs",
+  "tags": ["hospital", "ai", "rca", "loki"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "query": "label_values(service)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "sort": 1,
+        "multi": false
+      },
+      {
+        "name": "level",
+        "label": "Log Level",
+        "type": "custom",
+        "options": [
+          { "text": "All", "value": "", "selected": true },
+          { "text": "error", "value": "error" },
+          { "text": "warn",  "value": "warn"  },
+          { "text": "info",  "value": "info"  }
+        ],
+        "current": { "text": "All", "value": "" },
+        "includeAll": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 4,
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "## 👉 [🤖 AI Root Cause Analysis — **${service}**](http://localhost:5013/api/ai-rca/analyze?service=${service}&from=${__from:date:iso}&to=${__to:date:iso})\n\n_Chọn service từ dropdown → chọn time range → click link trên để phân tích lỗi_"
+      }
+    },
+    {
+      "id": 1,
+      "title": "📋 Logs",
+      "type": "logs",
+      "gridPos": { "h": 20, "w": 24, "x": 0, "y": 3 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "{service=~\"$service\"} |= \"\"",
+          "legendFormat": "",
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "fieldConfig": { "defaults": {} }
+    },
+    {
+      "id": 2,
+      "title": "Error Rate by Service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "sum by (service) (rate({service=~\"$service\", level=\"error\"}[1m]))",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Log Volume by Level",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "sum by (level) (rate({service=~\"$service\"}[1m]))",
+          "legendFormat": "{{level}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+          { "matcher": { "id": "byName", "options": "warn"  }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+          { "matcher": { "id": "byName", "options": "info"  }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }] }
+        ]
+      }
+    }
+  ],
+  "schemaVersion": 38
+}

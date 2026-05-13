@@ -596,6 +596,48 @@ GET    /api/search/analytics            # Search stats
 
 ---
 
+### 8. AI RCA Service
+
+**Technology:** .NET 8 + Anthropic Claude API, Loki + Jaeger
+**Port:** 5013
+**Database:** Loki (log store), Redis (cache), Jaeger (traces)
+**Build Status:** ✓ dotnet build verified
+**Gateway Route:** `/api/ai-rca/*` → `http://ai-rca-service:5013/`
+
+**Responsibilities:**
+- On-demand root cause analysis for log events
+- Query logs from Loki, redact PHI (PII), call Claude AI API
+- Cache RCA results for frequently investigated patterns
+- Integrate with Grafana data links for quick analysis
+
+**Key Features:**
+- **Data Link Integration:** Grafana panel button → AiRcaService → HTML result in browser
+- **PII Redaction:** Regex-based redaction for Vietnamese patient data (phone, ID, email)
+- **Jaeger Tracing:** Distributed trace context propagation via W3C Trace Context
+- **Redis Caching:** Cache RCA results by log hash (30% target cache hit rate)
+- **Structured Output:** Markdown result → HTML rendering (root cause + fix suggestion)
+
+**API Endpoints:**
+```
+POST   /api/ai-rca/analyze          # Analyze logs via Grafana data link
+GET    /api/ai-rca/health           # Health check endpoint
+```
+
+**Dependencies:**
+- Loki (log aggregation)
+- Anthropic Claude API (LLM provider)
+- Redis (result caching)
+- Jaeger (distributed tracing, optional)
+- Grafana (data link configuration)
+
+**Environment Variables:**
+- `ANTHROPIC_API_KEY` — Claude API authentication (required)
+- `LOKI_URL` — Loki query endpoint (default: http://loki:3100)
+- `REDIS_URL` — Redis connection (default: redis://redis:6379)
+- `JAEGER_ENABLED` — Enable tracing (default: true)
+
+---
+
 ## Infrastructure & Orchestration
 
 ### Docker Compose

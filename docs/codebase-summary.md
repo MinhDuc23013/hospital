@@ -261,6 +261,7 @@ hospital-microservices/
 | **PharmacyService** | 5004 | SQL Server | Node.js + TypeScript + Sequelize/tedious | tsc ✓ |
 | **NotificationService** | 5005 | Redis | Node.js + TypeScript + ioredis + nodemailer | tsc ✓ |
 | **SearchService** | 5006 | Elasticsearch | Node.js + TypeScript + @elastic/elasticsearch v8 | tsc ✓ |
+| **AiRcaService** | 5013 | Loki, Redis | .NET 8 + Anthropic Claude | dotnet build ✓ |
 
 ---
 
