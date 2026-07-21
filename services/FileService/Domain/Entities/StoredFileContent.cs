@@ -16,4 +16,7 @@ public class StoredFileContent
             Content = content
         };
     }
+
+    /// <summary>Replaces the raw bytes — used when syncing edits back from Google Drive.</summary>
+    public void ReplaceContent(byte[] content) => Content = content;
 }

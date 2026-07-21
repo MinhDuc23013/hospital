@@ -41,3 +41,7 @@ Thumbs.db
 coverage/
 TestResults/
 .nyc_output/
+
+# Secrets
+services/FileService/External/Key.json
+services/FileService/External/OauthClient.json

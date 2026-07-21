@@ -17,6 +17,8 @@ public class StoredFileConfiguration : IEntityTypeConfiguration<StoredFile>
         builder.Property(f => f.UploadedBy).HasMaxLength(100);
         builder.Property(f => f.UploadedAt).HasDefaultValueSql("NOW()");
         builder.Property(f => f.IsActive).HasDefaultValue(true);
+        builder.Property(f => f.DriveFileId).HasMaxLength(100);
+        builder.Property(f => f.DriveEditUrl).HasMaxLength(500);
         builder.HasIndex(f => f.UploadedBy);
         builder.HasIndex(f => f.UploadedAt);
     }

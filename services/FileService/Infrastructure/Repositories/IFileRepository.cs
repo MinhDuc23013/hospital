@@ -16,4 +16,13 @@ public interface IFileRepository
     Task AddAsync(StoredFile file, byte[] content, CancellationToken ct = default);
 
     Task SaveChangesAsync(CancellationToken ct = default);
+
+    /// <summary>Persists the Google Drive file id + edit URL for a file, after first successful conversion.</summary>
+    Task SetDriveInfoAsync(Guid id, string driveFileId, string driveEditUrl, CancellationToken ct = default);
+
+    /// <summary>Replaces stored content bytes + size/hash metadata — used by the sync-from-Drive flow.</summary>
+    Task UpdateContentAsync(Guid id, byte[] newContent, long sizeBytes, string sha256, CancellationToken ct = default);
+
+    /// <summary>Clears the Drive link after the Drive-side copy has been deleted post-sync.</summary>
+    Task ClearDriveInfoAsync(Guid id, CancellationToken ct = default);
 }

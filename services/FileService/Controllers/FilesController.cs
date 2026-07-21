@@ -56,4 +56,18 @@ public class FilesController : ControllerBase
         await _mediator.Send(new DeleteFileCommand(id), ct);
         return Ok(new { success = true, message = "File deleted successfully." });
     }
+
+    [HttpPost("{id:guid}/edit-link")]
+    public async Task<IActionResult> GetEditLink(Guid id, CancellationToken ct)
+    {
+        var editUrl = await _mediator.Send(new GetEditLinkCommand(id), ct);
+        return Ok(new { editUrl });
+    }
+
+    [HttpPost("{id:guid}/sync-from-drive")]
+    public async Task<IActionResult> SyncFromDrive(Guid id, CancellationToken ct)
+    {
+        var dto = await _mediator.Send(new SyncFromDriveCommand(id), ct);
+        return Ok(dto);
+    }
 }

@@ -42,6 +42,10 @@ builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection(
 var fileStorageOptions = builder.Configuration.GetSection(FileStorageOptions.SectionName).Get<FileStorageOptions>()
     ?? new FileStorageOptions();
 
+// Google Drive config (target folder for "edit" feature) + OAuth client secret path
+builder.Services.Configure<GoogleDriveOptions>(builder.Configuration.GetSection(GoogleDriveOptions.SectionName));
+builder.Services.Configure<GoogleOAuthOptions>(builder.Configuration.GetSection(GoogleOAuthOptions.SectionName));
+
 // EF Core + PostgreSQL
 builder.Services.AddDbContext<FileDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL"),
@@ -57,7 +61,13 @@ builder.Services.AddJaegerTracing(builder.Configuration, "file-service");
 
 // Repositories & services
 builder.Services.AddScoped<IFileRepository, FileRepository>();
+builder.Services.AddScoped<IGoogleDriveConnectionRepository, GoogleDriveConnectionRepository>();
 builder.Services.AddScoped<FileValidationService>();
+// Scoped (not Singleton): access tokens expire/rotate per-call, and both services depend on
+// the Scoped connection repository — a Scoped service can't be safely injected into a Singleton.
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<GoogleOAuthService>();
+builder.Services.AddScoped<GoogleDriveEditService>();
 
 // NOTE: Keycloak auth intentionally not wired up for this pass — endpoints are open.
 builder.Services.AddControllers();

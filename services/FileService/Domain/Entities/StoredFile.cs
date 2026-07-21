@@ -13,6 +13,8 @@ public class StoredFile
     public string? UploadedBy { get; private set; }
     public DateTime UploadedAt { get; private set; }
     public bool IsActive { get; private set; }
+    public string? DriveFileId { get; private set; }
+    public string? DriveEditUrl { get; private set; }
 
     private StoredFile() { } // EF Core constructor
 
@@ -33,4 +35,24 @@ public class StoredFile
     }
 
     public void Deactivate() => IsActive = false;
+
+    public void SetDriveInfo(string driveFileId, string driveEditUrl)
+    {
+        DriveFileId = driveFileId;
+        DriveEditUrl = driveEditUrl;
+    }
+
+    /// <summary>Clears the Drive link after the Drive-side copy is deleted post-sync.</summary>
+    public void ClearDriveInfo()
+    {
+        DriveFileId = null;
+        DriveEditUrl = null;
+    }
+
+    /// <summary>Updates size/hash metadata after content is replaced (e.g. synced back from Drive).</summary>
+    public void UpdateContentMetadata(long sizeBytes, string sha256)
+    {
+        SizeBytes = sizeBytes;
+        Sha256 = sha256;
+    }
 }

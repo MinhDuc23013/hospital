@@ -1,4 +1,5 @@
 using FileService.Domain.Entities;
+using FileService.Domain.Exceptions;
 using FileService.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,4 +39,34 @@ public class FileRepository : IFileRepository
 
     public Task SaveChangesAsync(CancellationToken ct = default)
         => _context.SaveChangesAsync(ct);
+
+    public async Task SetDriveInfoAsync(Guid id, string driveFileId, string driveEditUrl, CancellationToken ct = default)
+    {
+        var file = await _context.Files.FirstOrDefaultAsync(f => f.Id == id, ct)
+            ?? throw new NotFoundException("StoredFile", id);
+
+        file.SetDriveInfo(driveFileId, driveEditUrl);
+        await _context.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateContentAsync(Guid id, byte[] newContent, long sizeBytes, string sha256, CancellationToken ct = default)
+    {
+        var file = await _context.Files.FirstOrDefaultAsync(f => f.Id == id, ct)
+            ?? throw new NotFoundException("StoredFile", id);
+        var content = await _context.Contents.FirstOrDefaultAsync(c => c.Id == id, ct)
+            ?? throw new NotFoundException("StoredFile", id);
+
+        file.UpdateContentMetadata(sizeBytes, sha256);
+        content.ReplaceContent(newContent);
+        await _context.SaveChangesAsync(ct);
+    }
+
+    public async Task ClearDriveInfoAsync(Guid id, CancellationToken ct = default)
+    {
+        var file = await _context.Files.FirstOrDefaultAsync(f => f.Id == id, ct)
+            ?? throw new NotFoundException("StoredFile", id);
+
+        file.ClearDriveInfo();
+        await _context.SaveChangesAsync(ct);
+    }
 }

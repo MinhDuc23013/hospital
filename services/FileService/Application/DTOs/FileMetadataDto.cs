@@ -10,4 +10,5 @@ public class FileMetadataDto
     public string? Sha256 { get; set; }
     public string? UploadedBy { get; set; }
     public DateTime UploadedAt { get; set; }
+    public bool HasDriveLink { get; set; }
 }

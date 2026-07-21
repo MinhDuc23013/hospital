@@ -31,4 +31,7 @@ export const ENDPOINTS = {
 
   // Notification service
   NOTIFICATIONS: '/api/notifications',
+
+  // File service
+  FILES: '/api/files',
 } as const;

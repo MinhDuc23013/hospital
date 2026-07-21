@@ -10,6 +10,7 @@ import {
   SafetyOutlined,
   LogoutOutlined,
   WalletOutlined,
+  FolderOutlined,
 } from '@ant-design/icons';
 import type { ComponentType } from 'react';
 import { useAuth } from '../auth/useAuth';
@@ -30,6 +31,7 @@ const navItems: readonly NavItem[] = [
   { to: '/cashier',         label: 'Cashier',           Icon: WalletOutlined,      roles: ['admin', 'receptionist'] },
   { to: '/patients',        label: 'Patients',          Icon: TeamOutlined,        roles: ['admin', 'doctor', 'receptionist', 'nurse'] },
   { to: '/doctors',         label: 'Doctors',           Icon: UserOutlined,        roles: ['admin', 'receptionist'] },
+  { to: '/files',           label: 'Files',             Icon: FolderOutlined,      roles: ['admin', 'doctor', 'receptionist', 'nurse'] },
   { to: '/admin/users',     label: 'User Management',   Icon: SafetyOutlined,      roles: ['admin'] },
 ];
 

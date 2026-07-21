@@ -28,9 +28,17 @@ public class ExceptionHandlingMiddleware
         {
             await WriteError(context, 404, ex.Message, "NOT_FOUND");
         }
+        catch (DriveNotConnectedException ex)
+        {
+            await WriteError(context, 409, ex.Message, "DRIVE_NOT_CONNECTED");
+        }
         catch (DomainException ex)
         {
             await WriteError(context, 400, ex.Message, "DOMAIN_ERROR");
+        }
+        catch (NotSupportedException ex)
+        {
+            await WriteError(context, 422, ex.Message, "NOT_EDITABLE");
         }
         catch (Exception ex)
         {

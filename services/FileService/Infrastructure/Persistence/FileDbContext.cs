@@ -7,6 +7,7 @@ public class FileDbContext : DbContext
 {
     public DbSet<StoredFile> Files => Set<StoredFile>();
     public DbSet<StoredFileContent> Contents => Set<StoredFileContent>();
+    public DbSet<GoogleDriveConnection> DriveConnections => Set<GoogleDriveConnection>();
 
     public FileDbContext(DbContextOptions<FileDbContext> options) : base(options) { }
 
@@ -14,6 +15,7 @@ public class FileDbContext : DbContext
     {
         modelBuilder.ApplyConfiguration(new StoredFileConfiguration());
         modelBuilder.ApplyConfiguration(new StoredFileContentConfiguration());
+        modelBuilder.ApplyConfiguration(new GoogleDriveConnectionConfiguration());
 
         modelBuilder.Entity<StoredFile>()
             .HasOne<StoredFileContent>()

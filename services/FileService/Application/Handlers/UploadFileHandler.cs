@@ -41,6 +41,7 @@ public class UploadFileHandler : IRequestHandler<UploadFileCommand, FileMetadata
         SizeBytes = f.SizeBytes,
         Sha256 = f.Sha256,
         UploadedBy = f.UploadedBy,
-        UploadedAt = f.UploadedAt
+        UploadedAt = f.UploadedAt,
+        HasDriveLink = !string.IsNullOrWhiteSpace(f.DriveFileId)
     };
 }
