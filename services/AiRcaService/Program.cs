@@ -38,8 +38,8 @@ builder.Services.AddHttpClient<ILokiClient, LokiClient>(client =>
         builder.Configuration.GetValue<int>("Loki:TimeoutSeconds", 30));
 });
 
-// Anthropic HTTP client (no base address — full URL per request)
-builder.Services.AddHttpClient<ILlmProvider, AnthropicLlmProvider>(client =>
+// Internal LLM HTTP client — base address set at request time from config
+builder.Services.AddHttpClient<ILlmProvider, InternalLlmProvider>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(120);
 });
